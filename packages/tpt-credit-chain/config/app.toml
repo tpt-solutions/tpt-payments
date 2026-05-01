@@ -1,0 +1,21 @@
+# TPT Credit Chain — app.toml
+# Copy this to ~/.tptcredit/config/app.toml and adjust for your deployment.
+
+minimum-gas-prices = "0ucredit"
+
+[api]
+enable = true
+swagger = true
+address = "tcp://localhost:1317"
+max-open-connections = 1000
+
+[grpc]
+enable = true
+address = "localhost:9090"
+
+[telemetry]
+enabled = true
+service-name = "tpt-credit"
+
+[pruning]
+pruning = "default"

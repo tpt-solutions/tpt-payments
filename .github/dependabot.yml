@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/packages/tpt-pay-core"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "go"]
+
+  - package-ecosystem: "gomod"
+    directory: "/packages/tpt-credit-chain"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "go", "chain"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "ci"]

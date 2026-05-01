@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    name: Create release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Run tests before release
+        run: go test -count=1 ./packages/tpt-pay-core/...
+
+      - name: Build release binaries
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build \
+            -ldflags="-X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }}" \
+            -o dist/tpt-pay-server-linux-amd64 \
+            ./packages/tpt-pay-core/cmd/server
+          GOOS=linux GOARCH=arm64 go build \
+            -ldflags="-X main.version=${{ github.ref_name }} -X main.commit=${{ github.sha }}" \
+            -o dist/tpt-pay-server-linux-arm64 \
+            ./packages/tpt-pay-core/cmd/server
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: packages/tpt-pay-core
+          push: false  # set to true when registry is configured
+          tags: |
+            ghcr.io/tpt-platform/tpt-pay-core:${{ github.ref_name }}
+            ghcr.io/tpt-platform/tpt-pay-core:latest
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          git log $(git describe --tags --abbrev=0 HEAD^)..HEAD \
+            --pretty=format:"- %s (%h)" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: |
+            ## Changelog
+            ${{ steps.changelog.outputs.CHANGELOG }}
+          files: dist/*
+          generate_release_notes: false

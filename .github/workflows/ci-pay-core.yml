@@ -1,0 +1,100 @@
+name: CI — tpt-pay-core
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/tpt-pay-core/**"
+      - "go.work"
+      - ".github/workflows/ci-pay-core.yml"
+  pull_request:
+    paths:
+      - "packages/tpt-pay-core/**"
+      - "go.work"
+      - ".github/workflows/ci-pay-core.yml"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: packages/tpt-pay-core
+
+  unit-test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+      - name: Run unit tests with race detector
+        run: go test -count=1 -race -short ./packages/tpt-pay-core/...
+
+  integration-test:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tptpay
+          POSTGRES_PASSWORD: tptpay
+          POSTGRES_DB: tptpay_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      nats:
+        image: nats:2.10-alpine
+        ports:
+          - 4222:4222
+        options: >-
+          --health-cmd "nats-server --help"
+          --health-interval 10s
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+      - name: Install Atlas
+        run: |
+          curl -sSf https://atlasgo.sh | sh
+      - name: Run migrations
+        env:
+          DATABASE_URL: "postgres://tptpay:tptpay@localhost:5432/tptpay_test?sslmode=disable"
+        run: |
+          atlas migrate apply \
+            --dir "file://packages/tpt-pay-core/migrations" \
+            --url "$DATABASE_URL"
+      - name: Run integration tests
+        env:
+          DATABASE_URL: "postgres://tptpay:tptpay@localhost:5432/tptpay_test?sslmode=disable"
+          NATS_URL: "nats://localhost:4222"
+          TEST_MODE: "integration"
+        run: go test -count=1 -race ./packages/tpt-pay-core/...
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+      - name: Build server binary
+        run: go build -o /dev/null ./packages/tpt-pay-core/cmd/server

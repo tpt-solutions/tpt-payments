@@ -1,0 +1,51 @@
+name: tpt-platform-test
+
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: tptpay
+      POSTGRES_PASSWORD: tptpay
+      POSTGRES_DB: tptpay_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tptpay"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats-test:
+    image: nats:2.10-alpine
+    command: ["-js"]
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate-test:
+    image: arigaio/atlas:latest
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    volumes:
+      - ./packages/tpt-pay-core/migrations:/migrations
+    command: >
+      migrate apply
+        --dir "file:///migrations"
+        --url "postgres://tptpay:tptpay@postgres-test:5432/tptpay_test?sslmode=disable"
+    restart: "no"
+
+  test-runner:
+    build:
+      context: packages/tpt-pay-core
+      dockerfile: Dockerfile.test
+    depends_on:
+      migrate-test:
+        condition: service_completed_successfully
+      nats-test:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://tptpay:tptpay@postgres-test:5432/tptpay_test?sslmode=disable"
+      NATS_URL: "nats://nats-test:4222"
+      TEST_MODE: "integration"
+    command: ["go", "test", "-count=1", "-race", "-v", "./..."]

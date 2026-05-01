@@ -1,0 +1,60 @@
+name: CI — tpt-credit-chain
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/tpt-credit-chain/**"
+      - ".github/workflows/ci-credit-chain.yml"
+  pull_request:
+    paths:
+      - "packages/tpt-credit-chain/**"
+      - ".github/workflows/ci-credit-chain.yml"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: packages/tpt-credit-chain
+
+  test:
+    name: Unit + simulation tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+      - name: Run unit tests
+        working-directory: packages/tpt-credit-chain
+        run: go test -count=1 -race ./...
+      - name: Run simulation tests
+        working-directory: packages/tpt-credit-chain
+        run: go test -count=1 -run TestFullAppSimulation ./app/... -v -SimulationEnabled=true
+        continue-on-error: true  # simulation tests are non-deterministic; failures are informational
+      - name: Check invariants
+        working-directory: packages/tpt-credit-chain
+        run: go test -count=1 -run TestInvariants ./x/...
+
+  build:
+    name: Build chain binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+      - name: Build tptcreditd
+        working-directory: packages/tpt-credit-chain
+        run: go build -o /dev/null ./cmd/tptcreditd

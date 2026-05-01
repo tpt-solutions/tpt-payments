@@ -1,0 +1,112 @@
+name: tpt-platform
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tptpay
+      POSTGRES_PASSWORD: tptpay
+      POSTGRES_DB: tptpay
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tptpay"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nats:
+    image: nats:2.10-alpine
+    restart: unless-stopped
+    command: ["-js", "-m", "8222"]
+    ports:
+      - "4222:4222"   # client
+      - "8222:8222"   # monitoring
+    volumes:
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  vault:
+    image: hashicorp/vault:1.17
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: dev-root-token
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    ports:
+      - "8200:8200"
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://localhost:8200"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: arigaio/atlas:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./packages/tpt-pay-core/migrations:/migrations
+    command: >
+      migrate apply
+        --dir "file:///migrations"
+        --url "postgres://tptpay:tptpay@postgres:5432/tptpay?sslmode=disable"
+    restart: "no"
+
+  tpt-pay-core:
+    build:
+      context: packages/tpt-pay-core
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    env_file:
+      - packages/tpt-pay-core/.env
+    environment:
+      DATABASE_URL: "postgres://tptpay:tptpay@postgres:5432/tptpay?sslmode=disable"
+      NATS_URL: "nats://nats:4222"
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "dev-root-token"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./packages/tpt-pay-core:/app
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  nats_data:

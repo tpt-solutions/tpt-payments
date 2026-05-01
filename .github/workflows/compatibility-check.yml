@@ -1,0 +1,43 @@
+name: Stripe Compatibility Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    name: Stripe API Compatibility
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Download dependencies
+        run: cd tpt-payments && go mod download
+
+      - name: Build compatibility generator
+        run: cd tpt-payments && go build -o compatibility-check ./tools/compatibility-report
+
+      - name: Run compatibility check
+        id: check
+        run: |
+          cd tpt-payments
+          ./compatibility-check --format markdown --output compatibility-report.md
+          echo "report<<EOF" >> $GITHUB_OUTPUT
+          cat compatibility-report.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment PR with compatibility report
+        uses: thollander/actions-comment-pull-request@v2
+        if: github.event_name == 'pull_request'
+        with:
+          message: |
+            ## 📊 Stripe API Compatibility Report
+            ${{ steps.check.outputs.report }}
+          comment_tag: compatibility-report

@@ -1,0 +1,96 @@
+{
+  "genesis_time": "2026-04-26T00:00:00Z",
+  "chain_id": "tpt-credit-devnet-1",
+  "initial_height": "1",
+  "consensus": {
+    "params": {
+      "block": {
+        "max_bytes": "22020096",
+        "max_gas": "-1"
+      },
+      "evidence": {
+        "max_age_num_blocks": "100000",
+        "max_age_duration": "172800000000000",
+        "max_bytes": "1048576"
+      },
+      "validator": {
+        "pub_key_types": ["ed25519"]
+      },
+      "version": {
+        "app": "0"
+      }
+    }
+  },
+  "app_hash": "",
+  "app_state": {
+    "issuance": {
+      "human_accounts": []
+    },
+    "burn": {
+      "burn_records": []
+    },
+    "bank": {
+      "params": {
+        "send_enabled": [],
+        "default_send_enabled": true
+      },
+      "balances": [],
+      "supply": [],
+      "denom_metadata": [
+        {
+          "description": "TPT Credit — universal basic credit issued at 12,000/year per verified human",
+          "denom_units": [
+            {
+              "denom": "ucredit",
+              "exponent": 0,
+              "aliases": ["micro-credit"]
+            },
+            {
+              "denom": "credit",
+              "exponent": 6,
+              "aliases": []
+            }
+          ],
+          "base": "ucredit",
+          "display": "credit",
+          "name": "TPT Credit",
+          "symbol": "c"
+        }
+      ]
+    },
+    "staking": {
+      "params": {
+        "unbonding_time": "1814400s",
+        "max_validators": 7,
+        "max_entries": 7,
+        "historical_entries": 10000,
+        "bond_denom": "ucredit"
+      },
+      "last_total_power": "0",
+      "last_validator_powers": [],
+      "validators": [],
+      "delegations": [],
+      "unbonding_delegations": [],
+      "redelegations": [],
+      "exported": false
+    },
+    "gov": {
+      "starting_proposal_id": "1",
+      "deposits": [],
+      "votes": [],
+      "proposals": [],
+      "deposit_params": {
+        "min_deposit": [{"denom": "ucredit", "amount": "10000000"}],
+        "max_deposit_period": "172800s"
+      },
+      "voting_params": {
+        "voting_period": "172800s"
+      },
+      "tally_params": {
+        "quorum": "0.334000000000000000",
+        "threshold": "0.500000000000000000",
+        "veto_threshold": "0.334000000000000000"
+      }
+    }
+  }
+}

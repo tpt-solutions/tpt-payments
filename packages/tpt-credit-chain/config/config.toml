@@ -1,0 +1,37 @@
+# TPT Credit Chain — CometBFT config.toml
+# Copy this to ~/.tptcredit/config/config.toml and adjust for your deployment.
+
+[base]
+moniker = "tpt-credit-devnet"
+log_level = "info"
+log_format = "json"
+
+[rpc]
+laddr = "tcp://127.0.0.1:26657"
+cors_allowed_origins = []
+
+[p2p]
+laddr = "tcp://0.0.0.0:26656"
+external_address = ""
+seeds = ""
+persistent_peers = ""
+max_num_inbound_peers = 40
+max_num_outbound_peers = 10
+
+[consensus]
+# Target 2-second block time.
+timeout_propose        = "1000ms"
+timeout_propose_delta  = "500ms"
+timeout_prevote        = "500ms"
+timeout_prevote_delta  = "500ms"
+timeout_precommit      = "500ms"
+timeout_precommit_delta = "500ms"
+timeout_commit         = "1000ms"
+
+[mempool]
+size = 5000
+max_tx_bytes = 1048576
+max_txs_bytes = 1073741824
+
+[statesync]
+enable = false
