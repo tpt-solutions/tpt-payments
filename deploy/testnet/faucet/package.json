@@ -1,0 +1,23 @@
+{
+  "name": "tpt-credit-faucet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web-based faucet for TPT Credit testnet",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "express-rate-limit": "^7.2.0",
+    "axios": "^1.7.0",
+    "@cosmjs/stargate": "^0.32.0",
+    "@cosmjs/proto-signing": "^0.32.0",
+    "@cosmjs/crypto": "^0.32.0",
+    "@cosmjs/encoding": "^0.32.0",
+    "dotenv": "^16.4.0",
+    "cors": "^2.8.5",
+    "ejs": "^3.1.0"
+  }
+}

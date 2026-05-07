@@ -39,6 +39,10 @@ const (
 	// OffRampEnabled controls whether credit→fiat conversions are permitted.
 	// This is false and must never be changed.
 	OffRampEnabled = false
+
+	// BlocksPerYear is the number of blocks in one year at 2-second block time.
+	// 365.25 days × 24 h × 60 min × 30 blocks/min = 15,778,800 blocks/year.
+	BlocksPerYear = int64(15_778_800)
 )
 
 // AnnualAllocation returns the per-human annual issuance as a math.Int.
@@ -48,6 +52,33 @@ func AnnualAllocation() math.Int {
 
 // PayoutFrequency controls how often a human receives their credits.
 type PayoutFrequency string
+
+// MaxBalanceUcredit is the maximum balance cap (3 × annual allocation).
+// 3 × 12,000 × 1,000,000 = 36,000,000,000 ucredit
+const MaxBalanceUcredit int64 = 3 * AnnualAllocationUcredit
+
+// MaxBalanceCredits is MaxBalanceUcredit in credit units.
+const MaxBalanceCredits int64 = 3 * AnnualAllocationCredits
+
+// FeePolicy defines the transaction fee model for the credit chain.
+type FeePolicy string
+
+const (
+	// FeeZero is Option A: 0 fees (pure credit system). This is the
+	// hardcoded policy for TPT Credit — credits are a basic income
+	// instrument, not a revenue source for validators. Validators
+	// are compensated separately through the protocol's operational
+	// budget (off-chain).
+	//
+	// Decision documented per TODO: Option A selected. Rationale:
+	// - Credits are a UBI/merit instrument, not a speculative token.
+	// - Fees create friction for the unbanked user base.
+	// - Validator compensation is a separate concern (operational grants).
+	FeeZero FeePolicy = "zero"
+
+	// FeeOptionB would be 0.1% fee to validator pool. NOT SELECTED.
+	// FeeOptionB FeePolicy = "fee_0.1pct"
+)
 
 const (
 	FrequencyWeekly    PayoutFrequency = "weekly"     // 52 payouts/year ≈ 230.77 ucredit each
@@ -82,6 +113,11 @@ func PayoutAmount(f PayoutFrequency) math.Int {
 	return math.NewInt(AnnualAllocationUcredit / perYear)
 }
 
+// BlocksPerPayout returns the number of blocks between payouts for a given frequency.
+func BlocksPerPayout(f PayoutFrequency) int64 {
+	return BlocksPerYear / PayoutsPerYear(f)
+}
+
 // HumanAccount is the on-chain record for a registered human.
 type HumanAccount struct {
 	// Address is the Cosmos bech32 account address.
@@ -101,11 +137,59 @@ type HumanAccount struct {
 	// Resets to 0 after the annual burn.
 	YearCreditsReceived math.Int `json:"year_credits_received"`
 
+	// YearPayoutCount tracks the number of payouts received this year.
+	// Resets to 0 after the annual burn.
+	YearPayoutCount int64 `json:"year_payout_count"`
+
 	// LastPaidAt is the block height of the most recent payout.
 	LastPaidAt int64 `json:"last_paid_at"`
 
+	// NextDueAt is the block height at which the next payout is due.
+	// This is computed as LastPaidAt + BlocksPerPayout.
+	NextDueAt int64 `json:"next_due_at"`
+
 	// RegisteredAt is the block height of registration.
 	RegisteredAt int64 `json:"registered_at"`
+
+	// Balance is the current spendable ucredit balance.
+	// This is the amount available for transfers (separate from YearCreditsReceived
+	// which tracks issuance for cap enforcement).
+	Balance math.Int `json:"balance"`
+}
+
+// SendLimit defines a per-day or per-transaction send limit.
+type SendLimit struct {
+	// PerTransaction is the maximum ucredit amount allowed per single transfer.
+	// 0 means no limit.
+	PerTransaction int64 `json:"per_transaction"`
+
+	// PerDay is the maximum total ucredit amount allowed per day (rolling 24h).
+	// 0 means no limit.
+	PerDay int64 `json:"per_day"`
+}
+
+// TransferRecord tracks a credits transfer for audit and limit enforcement.
+type TransferRecord struct {
+	// From is the sender address.
+	From string `json:"from"`
+
+	// To is the recipient address.
+	To string `json:"to"`
+
+	// Amount is the ucredit amount transferred.
+	Amount math.Int `json:"amount"`
+
+	// BlockHeight is the block height of the transfer.
+	BlockHeight int64 `json:"block_height"`
+}
+
+// BatchSendEntry is a single recipient in a batch send operation.
+type BatchSendEntry struct {
+	// To is the recipient address.
+	To string `json:"to"`
+
+	// Amount is the ucredit amount to send.
+	Amount math.Int `json:"amount"`
 }
 
 // GenesisState is the initial state for the issuance module.

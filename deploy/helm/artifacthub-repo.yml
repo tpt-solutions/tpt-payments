@@ -1,0 +1,21 @@
+# tpt-payments/deploy/helm/artifacthub-repo.yml
+# Artifact Hub repository configuration
+# See: https://artifacthub.io/docs/topics/repositories/
+
+repositoryID: tpt-payments
+repositoryName: TPT Payments
+repositoryUrl: https://github.com/tpt-payments/tpt-payments
+description: TPT Payments - Open Source Stripe Alternative Helm Chart
+kind: helm
+owners:
+  - name: TPT Payments Team
+    email: team@tptpayments.io
+homeUrl: https://tptpayments.io
+scanInterval: 30m
+# Whether to include security reports in the repository
+includeSecurityReport: true
+# Whether to sign packages automatically
+sign: false
+# Repository URL for OCI registry (GitHub Container Registry)
+ociRepositories:
+  - ghcr.io/tpt-payments/helm-charts

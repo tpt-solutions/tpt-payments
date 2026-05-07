@@ -1,0 +1,126 @@
+# Docker Compose for TPT Credit chain testnet infrastructure.
+# Includes: chain node, faucet API, Ping.pub explorer, Prometheus, Grafana.
+# Usage: docker compose -f deploy/testnet/docker-compose.testnet.yml up -d
+x-chain-config: &chain-config
+  image: tpt-credit-chain:latest
+  build:
+    context: ../../packages/tpt-credit-chain
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  volumes:
+    - chain_data:/root/.tptcredit
+  networks:
+    - tpt-testnet
+
+services:
+  validator-0:
+    <<: *chain-config
+    container_name: tpt-validator-0
+    environment:
+      TPTCREDIT_HOME: /root/.tptcredit
+      MONIKER: tpt-validator-0
+    ports:
+      - "26656:26656"   # P2P
+      - "26657:26657"   # RPC
+      - "1317:1317"     # API
+      - "9090:9090"     # gRPC
+      - "26660:26660"   # Metrics
+    command: ["tptcreditd", "start"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Prometheus monitoring
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: tpt-testnet-prometheus
+    restart: unless-stopped
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9091:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - tpt-testnet
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: tpt-testnet-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=tptcredit2026
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/tpt-credit-testnet.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/tpt-credit-testnet.json:ro
+      - ../monitoring/grafana-datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ../monitoring/grafana-dashboard-provider.yml:/etc/grafana/provisioning/dashboards/dashboard-provider.yml:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - tpt-testnet
+
+  # Testnet faucet web app
+  faucet:
+    build:
+      context: ./faucet
+      dockerfile: Dockerfile
+    container_name: tpt-testnet-faucet
+    restart: unless-stopped
+    environment:
+      CHAIN_RPC_URL: http://validator-0:26657
+      CHAIN_API_URL: http://validator-0:1317
+      FAUCET_MNEMONIC: "${FAUCET_MNEMONIC}"
+      FAUCET_AMOUNT: "10000000"  # 10 credits in ucredit
+      RATE_LIMIT_PER_IP: "86400"  # 1 request per 24h per IP
+    ports:
+      - "3002:3000"
+    depends_on:
+      - validator-0
+    networks:
+      - tpt-testnet
+
+  # Ping.pub chain explorer
+  explorer:
+    image: pingpub/explorer:v1.3.0
+    container_name: tpt-testnet-explorer
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_CHAIN_NAME: "TPT Credit Testnet"
+      NEXT_PUBLIC_CHAIN_ID: "tpt-credit-testnet-1"
+      NEXT_PUBLIC_RPC: "http://validator-0:26657"
+      NEXT_PUBLIC_LCD: "http://validator-0:1317"
+      NEXT_PUBLIC_STAKING_DENOM: "ucredit"
+      NEXT_PUBLIC_COINGECKO_ID: ""
+      NEXT_PUBLIC_THEME: "dark"
+      NEXT_PUBLIC_PRODUCT_NAME: "TPT Credit"
+    volumes:
+      - ./explorer/config:/app/config
+      - ./explorer/branding/logo.png:/app/public/logo.png:ro
+    ports:
+      - "3003:3000"
+    depends_on:
+      - validator-0
+    networks:
+      - tpt-testnet
+
+volumes:
+  chain_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  tpt-testnet:
+    driver: bridge

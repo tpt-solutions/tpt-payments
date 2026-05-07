@@ -1,0 +1,267 @@
+{
+  "title": "TPT Credit Chain - Testnet Dashboard",
+  "uid": "tpt-credit-testnet",
+  "description": "Monitoring dashboard for the TPT Credit sovereign credit chain testnet. Displays chain health, issuance activity, burn events, and account metrics.",
+  "tags": ["tpt-credit", "testnet", "cosmos"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "title": "Chain Info",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 3, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "tpt_credit_chain_info", "legendFormat": "{{chain_id}}"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "background"},
+          "mappings": [{"type": 1, "options": {"1": {"text": "Running", "color": "green"}}}]
+        }
+      }
+    },
+    {
+      "title": "Block Height",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 3, "x": 3, "y": 0},
+      "targets": [
+        {"expr": "tpt_credit_block_height", "legendFormat": "Height"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "background"}
+        }
+      }
+    },
+    {
+      "title": "Verified Humans",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 3, "x": 6, "y": 0},
+      "targets": [
+        {"expr": "tpt_credit_human_count", "legendFormat": "Humans"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "background"}
+        }
+      }
+    },
+    {
+      "title": "Uptime",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 3, "x": 9, "y": 0},
+      "targets": [
+        {"expr": "tpt_credit_uptime_seconds", "legendFormat": "Uptime"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {"mode": "background"}
+        }
+      }
+    },
+    {
+      "title": "Blocks Per Minute",
+      "type": "gauge",
+      "gridPos": {"h": 3, "w": 3, "x": 12, "y": 0},
+      "targets": [
+        {"expr": "tpt_credit_blocks_per_minute", "legendFormat": "BPM"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "min": 0,
+          "max": 60,
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 20},
+              {"color": "green", "value": 25}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Total Supply (ucredit)",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 3},
+      "targets": [
+        {"expr": "tpt_credit_supply_ucredit", "legendFormat": "Yearly Issuance Supply"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      }
+    },
+    {
+      "title": "Total Spendable Balance (ucredit)",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 3},
+      "targets": [
+        {"expr": "tpt_credit_total_balance_ucredit", "legendFormat": "Total Balance"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      }
+    },
+    {
+      "title": "Average Balance Per Human",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 3},
+      "targets": [
+        {"expr": "tpt_credit_avg_balance_ucredit", "legendFormat": "Avg Balance"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        }
+      }
+    },
+    {
+      "title": "Supply Per Human",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 3, "x": 0, "y": 9},
+      "targets": [
+        {"expr": "tpt_credit_supply_per_human", "legendFormat": "Supply/Human"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "background"}
+        }
+      }
+    },
+    {
+      "title": "Events Over Time",
+      "type": "graph",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 12},
+      "targets": [
+        {"expr": "rate(tpt_credit_events_total{type=\"human_registered\"}[5m])", "legendFormat": "Human Registrations"},
+        {"expr": "rate(tpt_credit_events_total{type=\"credits_issued\"}[5m])", "legendFormat": "Credits Issued"},
+        {"expr": "rate(tpt_credit_events_total{type=\"transfers\"}[5m])", "legendFormat": "Transfers"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps"
+        }
+      }
+    },
+    {
+      "title": "Event Totals",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 3, "x": 12, "y": 12},
+      "targets": [
+        {"expr": "tpt_credit_events_total{type=\"human_registered\"}", "legendFormat": "Registrations"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "background"}
+        }
+      }
+    },
+    {
+      "title": "Burn Event - Total Burned",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 4, "x": 0, "y": 18},
+      "targets": [
+        {"expr": "tpt_credit_burn_info{field=\"total_burned\"}", "legendFormat": "Burned"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "background"}
+        }
+      }
+    },
+    {
+      "title": "Burn Event - Per Human",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 4, "x": 4, "y": 18},
+      "targets": [
+        {"expr": "tpt_credit_burn_info{field=\"per_human_amount\"}", "legendFormat": "Per Human"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "background"}
+        }
+      }
+    },
+    {
+      "title": "Burn Event - Active Humans",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 4, "x": 8, "y": 18},
+      "targets": [
+        {"expr": "tpt_credit_burn_info{field=\"active_humans\"}", "legendFormat": "Active"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "background"}
+        }
+      }
+    },
+    {
+      "title": "Burn Event - Remainder",
+      "type": "stat",
+      "gridPos": {"h": 3, "w": 4, "x": 12, "y": 18},
+      "targets": [
+        {"expr": "tpt_credit_burn_info{field=\"remainder\"}", "legendFormat": "Remainder"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "background"}
+        }
+      }
+    },
+    {
+      "title": "Recent Transactions",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+      "targets": [
+        {"expr": "tpt_credit_events_total", "legendFormat": ""}
+      ],
+      "transformations": [
+        {"id": "organize", "options": {"excludeByName": {}, "indexByName": {}, "renameByName": {"type": "Event Type", "Value": "Count"}}}
+      ],
+      "fieldConfig": {
+        "defaults": {}
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 27,
+  "version": 1,
+  "links": [],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"],
+    "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  }
+}

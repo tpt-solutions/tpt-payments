@@ -1,0 +1,76 @@
+{
+  "$schema": "../chain.schema.json",
+  "chain_name": "tpt-credit-testnet",
+  "status": "testnet",
+  "network_type": "testnet",
+  "pretty_name": "TPT Credit Testnet",
+  "chain_id": "tpt-credit-testnet-1",
+  "bech32_prefix": "cosmos",
+  "slip44": 118,
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "ucredit",
+        "fixed_min_gas_price": 0,
+        "low_gas_price": 0,
+        "average_gas_price": 0,
+        "high_gas_price": 0
+      }
+    ]
+  },
+  "staking": {
+    "staking_tokens": [
+      {
+        "denom": "ucredit"
+      }
+    ]
+  },
+  "codebase": {
+    "git_repo": "https://github.com/tpt-platform/tpt-platform",
+    "recommended_version": "v0.1.0",
+    "compatible_versions": ["v0.1.0"],
+    "cosmos_sdk_version": "simulated",
+    "ibc_go_version": "",
+    "cosmwasm_enabled": false,
+    "cosmwasm_version": ""
+  },
+  "logo_URIs": {
+    "png": "https://raw.githubusercontent.com/tpt-platform/tpt-platform/main/tpt-payments/deploy/testnet/explorer/branding/logo.png",
+    "svg": "https://raw.githubusercontent.com/tpt-platform/tpt-platform/main/tpt-payments/deploy/testnet/explorer/branding/logo.svg"
+  },
+  "description": "TPT Credit is a sovereign credit blockchain with immutable issuance (12,000 credits/year per verified human) and an annual full-burn mechanism. No on-ramps, no off-ramps, zero transaction fees. This is the public testnet.",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://testnet-rpc.tptcredit.com",
+        "provider": "TPT Platform"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://testnet-api.tptcredit.com",
+        "provider": "TPT Platform"
+      }
+    ],
+    "grpc": [
+      {
+        "address": "testnet-grpc.tptcredit.com:443",
+        "provider": "TPT Platform"
+      }
+    ]
+  },
+  "explorers": [
+    {
+      "kind": "ping.pub",
+      "url": "https://testnet-explorer.tptcredit.com",
+      "tx_page": "https://testnet-explorer.tptcredit.com/tx/${txHash}",
+      "account_page": "https://testnet-explorer.tptcredit.com/account/${accountAddress}"
+    }
+  ],
+  "images": [
+    {
+      "png": "https://raw.githubusercontent.com/tpt-platform/tpt-platform/main/tpt-payments/deploy/testnet/explorer/branding/logo.png",
+      "svg": "https://raw.githubusercontent.com/tpt-platform/tpt-platform/main/tpt-payments/deploy/testnet/explorer/branding/logo.svg"
+    }
+  ]
+}
