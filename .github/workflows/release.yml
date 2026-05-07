@@ -36,7 +36,7 @@ jobs:
             ./packages/tpt-pay-core/cmd/server
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: packages/tpt-pay-core
           push: false  # set to true when registry is configured
