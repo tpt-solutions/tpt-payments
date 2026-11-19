@@ -52,15 +52,46 @@ func TestVerify_ExpiredTimestamp(t *testing.T) {
 	assert.Contains(t, err.Error(), "too old")
 }
 
-func TestVerify_ZeroTolerance_AlwaysPasses(t *testing.T) {
-	// tolerance=0 means skip timestamp check.
+func TestVerify_ZeroToleranceUsesDefault(t *testing.T) {
+	// A zero tolerance must not disable replay protection.
 	secret := "whsec_test"
 	payload := []byte(`{}`)
 	ancient := time.Now().Add(-365 * 24 * time.Hour)
 	header := webhook.Sign(payload, secret, ancient)
 
 	err := webhook.Verify(payload, header, secret, 0)
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "too old")
+}
+
+func TestVerify_AcceptsAnyMatchingV1DuringRotation(t *testing.T) {
+	payload := []byte(`{"id":"evt_1"}`)
+	ts := time.Now()
+	good := webhook.Sign(payload, "whsec_new", ts)
+	stale := webhook.Sign(payload, "whsec_old", ts)
+	// Rotation: the header carries a signature for each active secret.
+	header := good + ",v1=" + stale[len(stale)-64:]
+
+	require.NoError(t, webhook.Verify(payload, header, "whsec_new", 5*time.Minute))
+	require.NoError(t, webhook.Verify(payload, header, "whsec_old", 5*time.Minute))
+	assert.Error(t, webhook.Verify(payload, header, "whsec_unknown", 5*time.Minute))
+}
+
+func TestVerify_RejectsFutureTimestamp(t *testing.T) {
+	payload := []byte(`{}`)
+	future := time.Now().Add(time.Hour)
+	header := webhook.Sign(payload, "whsec_test", future)
+
+	err := webhook.Verify(payload, header, "whsec_test", 5*time.Minute)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "in the future")
+}
+
+func TestVerify_RejectsMalformedHeaders(t *testing.T) {
+	payload := []byte(`{}`)
+	for _, h := range []string{"", "v1=abc", "t=123", "t=1,t=2,v1=abc", "t=notanumber,v1=abc"} {
+		assert.Error(t, webhook.Verify(payload, h, "whsec_test", 5*time.Minute), "header %q", h)
+	}
 }
 
 func TestRetrySchedule(t *testing.T) {

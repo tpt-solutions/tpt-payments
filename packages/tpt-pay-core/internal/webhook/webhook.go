@@ -1,20 +1,18 @@
 // Package webhook handles event creation, signing, and delivery scheduling.
 //
 // Signing is HMAC-SHA256 of "<timestamp>.<payload_bytes>" using the endpoint's
-// secret. The resulting header format is:
+// secret. The header format is:
 //
-//	TPT-Signature: t=<unix_timestamp>,v1=<hex_signature>
+//	TPT-Signature: t=<unix_timestamp>,v1=<hex_signature>[,v1=<hex_signature>...]
 //
-// This is intentionally compatible with Stripe's webhook signature scheme so
-// that Stripe webhook verification libraries work unchanged.
+// The scheme follows Stripe's webhook signing (same payload construction, same
+// t=/v1= structure). The header NAME differs: Stripe uses "Stripe-Signature", so
+// Stripe's verification libraries need their header option pointed at TPT-Signature.
 package webhook
 
 import (
-	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -61,51 +59,9 @@ func NewEvent(eventType EventType, data interface{}, livemode bool) (*Event, err
 }
 
 // Sign produces a TPT-Signature header value for the given payload and secret.
-// The format is compatible with Stripe's webhook signing scheme.
 func Sign(payload []byte, secret string, t time.Time) string {
 	ts := fmt.Sprintf("%d", t.Unix())
-	signed := ts + "." + string(payload)
-
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(signed))
-	sig := hex.EncodeToString(mac.Sum(nil))
-
-	return "t=" + ts + ",v1=" + sig
-}
-
-// Verify checks a TPT-Signature header against the payload and secret.
-// Returns an error if the signature is invalid or the timestamp is too old.
-func Verify(payload []byte, header, secret string, tolerance time.Duration) error {
-	parts := parseSignatureHeader(header)
-	ts, ok := parts["t"]
-	if !ok {
-		return fmt.Errorf("webhook: missing timestamp in signature header")
-	}
-	v1, ok := parts["v1"]
-	if !ok {
-		return fmt.Errorf("webhook: missing v1 signature")
-	}
-
-	// Reconstruct the signed payload.
-	signed := ts + "." + string(payload)
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(signed))
-	expected := hex.EncodeToString(mac.Sum(nil))
-
-	if !hmac.Equal([]byte(v1), []byte(expected)) {
-		return fmt.Errorf("webhook: signature mismatch")
-	}
-
-	// Check timestamp tolerance.
-	if tolerance > 0 {
-		var tsUnix int64
-		fmt.Sscanf(ts, "%d", &tsUnix)
-		age := time.Since(time.Unix(tsUnix, 0))
-		if age > tolerance {
-			return fmt.Errorf("webhook: timestamp too old (%s > %s)", age, tolerance)
-		}
-	}
-	return nil
+	return "t=" + ts + ",v1=" + computeSignature(payload, ts, secret)
 }
 
 // GenerateSecret creates a random webhook signing secret (whsec_ prefixed).
@@ -121,7 +77,7 @@ func GenerateSecret() string {
 // Follows exponential backoff with a 72-hour total window.
 func RetrySchedule(attempt int) time.Duration {
 	delays := []time.Duration{
-		0,            // attempt 1: immediate
+		0, // attempt 1: immediate
 		5 * time.Minute,
 		30 * time.Minute,
 		2 * time.Hour,
@@ -138,15 +94,4 @@ func RetrySchedule(attempt int) time.Duration {
 		return delays[attempt-1]
 	}
 	return 12 * time.Hour
-}
-
-func parseSignatureHeader(header string) map[string]string {
-	result := make(map[string]string)
-	for _, part := range strings.Split(header, ",") {
-		kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
-		if len(kv) == 2 {
-			result[kv[0]] = kv[1]
-		}
-	}
-	return result
 }
