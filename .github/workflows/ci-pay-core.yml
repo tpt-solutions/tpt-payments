@@ -2,7 +2,7 @@ name: CI — tpt-pay-core
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
     paths:
       - "packages/tpt-pay-core/**"
       - "go.work"
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.25"
           cache: true
       - uses: golangci/golangci-lint-action@v9
         with:
@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.25"
           cache: true
       - name: Run unit tests with race detector
         run: go test -count=1 -race -short ./packages/tpt-pay-core/...
@@ -57,6 +57,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # NATS is provisioned for the upcoming webhook delivery engine; no test uses it yet.
       nats:
         image: nats:2.10-alpine
         ports:
@@ -68,23 +69,19 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.25"
           cache: true
-      - name: Install Atlas
-        run: |
-          curl -sSf https://atlasgo.sh | sh
-      - name: Run migrations
+      - name: Apply migrations to a fresh database (checks order and syntax)
         env:
-          DATABASE_URL: "postgres://tptpay:tptpay@localhost:5432/tptpay_test?sslmode=disable"
+          PGPASSWORD: tptpay
         run: |
-          atlas migrate apply \
-            --dir "file://packages/tpt-pay-core/migrations" \
-            --url "$DATABASE_URL"
+          for f in packages/tpt-pay-core/migrations/*.sql; do
+            echo "applying $(basename "$f")"
+            psql -h localhost -U tptpay -d tptpay_test -v ON_ERROR_STOP=1 -q -f "$f"
+          done
       - name: Run integration tests
         env:
-          DATABASE_URL: "postgres://tptpay:tptpay@localhost:5432/tptpay_test?sslmode=disable"
-          NATS_URL: "nats://localhost:4222"
-          TEST_MODE: "integration"
+          TEST_DATABASE_URL: "postgres://tptpay:tptpay@localhost:5432/tptpay_test?sslmode=disable"
         run: go test -count=1 -race ./packages/tpt-pay-core/...
 
   build:
@@ -94,7 +91,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.25"
           cache: true
       - name: Build server binary
         run: go build -o /dev/null ./packages/tpt-pay-core/cmd/server

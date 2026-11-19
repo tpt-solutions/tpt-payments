@@ -1,43 +1,39 @@
-name: Stripe Compatibility Check
+name: Stripe compatibility report
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, master]
   push:
-    branches: [ main, develop ]
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   compatibility:
     runs-on: ubuntu-latest
-    name: Stripe API Compatibility
+    name: Measured route coverage
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: "1.25"
+          cache: true
 
-      - name: Download dependencies
-        run: cd tpt-payments && go mod download
+      - name: Generate report from the real router
+        run: go run ./packages/tpt-pay-core/cmd/compatreport --output compatibility-report.md
 
-      - name: Build compatibility generator
-        run: cd tpt-payments && go build -o compatibility-check ./tools/compatibility-report
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-report
+          path: compatibility-report.md
 
-      - name: Run compatibility check
-        id: check
-        run: |
-          cd tpt-payments
-          ./compatibility-check --format markdown --output compatibility-report.md
-          echo "report<<EOF" >> $GITHUB_OUTPUT
-          cat compatibility-report.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
-      - name: Comment PR with compatibility report
-        uses: thollander/actions-comment-pull-request@v3
+      - name: Comment on pull request
         if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v3
         with:
-          message: |
-            ## 📊 Stripe API Compatibility Report
-            ${{ steps.check.outputs.report }}
+          filePath: compatibility-report.md
           comment_tag: compatibility-report

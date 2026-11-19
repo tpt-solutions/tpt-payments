@@ -1,17 +1,63 @@
 version: 2
 updates:
+  # ── Go ──────────────────────────────────────────────────────────────────────
   - package-ecosystem: "gomod"
     directory: "/packages/tpt-pay-core"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
     labels: ["dependencies", "go"]
+    groups:
+      go-minor-and-patch:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "gomod"
     directory: "/packages/tpt-credit-chain"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
     labels: ["dependencies", "go", "chain"]
+    groups:
+      go-minor-and-patch:
+        update-types: ["minor", "patch"]
 
+  # ── JavaScript / TypeScript ─────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "javascript", "frontend"]
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: "npm"
+    directory: "/packages/tpt-pay"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "javascript", "sdk"]
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]
+
+  # ── Python ──────────────────────────────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/packages/python"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "python", "sdk"]
+
+  # ── Containers ──────────────────────────────────────────────────────────────
+  - package-ecosystem: "docker"
+    directory: "/packages/tpt-pay-core"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "docker"]
+
+  # ── GitHub Actions ──────────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
