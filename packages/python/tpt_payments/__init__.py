@@ -1,16 +1,31 @@
-# tpt-payments Python SDK
+"""TPT Pay Python SDK (pre-release)."""
 
 from .client import TPTPay
-from .resources import PaymentIntents, Refunds, Subscriptions, Invoices
-from .webhooks import construct_event, verify_signature
+from .errors import (
+    APIConnectionError,
+    APIError,
+    AuthenticationError,
+    CardError,
+    InvalidRequestError,
+    PermissionDeniedError,
+    SignatureVerificationError,
+    TPTError,
+)
+from .webhooks import SIGNATURE_HEADER, construct_event, verify_signature
 
-__version__ = "1.0.0"
+from ._version import __version__
+
 __all__ = [
     "TPTPay",
-    "PaymentIntents",
-    "Refunds", 
-    "Subscriptions",
-    "Invoices",
+    "TPTError",
+    "APIConnectionError",
+    "APIError",
+    "AuthenticationError",
+    "CardError",
+    "InvalidRequestError",
+    "PermissionDeniedError",
+    "SignatureVerificationError",
+    "SIGNATURE_HEADER",
     "construct_event",
-    "verify_signature"
+    "verify_signature",
 ]
