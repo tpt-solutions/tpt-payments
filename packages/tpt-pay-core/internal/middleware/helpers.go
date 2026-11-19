@@ -12,12 +12,6 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	switch e := err.(type) {
 	case *apierrors.APIError:
 		apiErr = e
-	case *idempotencyError:
-		apiErr = &apierrors.APIError{
-			StatusCode: http.StatusUnprocessableEntity,
-			Type:       apierrors.ErrorTypeIdempotency,
-			Message:    e.msg,
-		}
 	default:
 		apiErr = apierrors.Internal("An unexpected error occurred.")
 	}
