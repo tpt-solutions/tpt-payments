@@ -2,7 +2,7 @@ name: CI — tpt-pay-core
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
     paths:
       - "packages/tpt-pay-core/**"
       - "go.work"
