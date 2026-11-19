@@ -1,6 +1,6 @@
-go 1.25
+go 1.25.0
 
 use (
-	./packages/tpt-pay-core
 	./packages/tpt-credit-chain
+	./packages/tpt-pay-core
 )
