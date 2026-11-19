@@ -12,33 +12,34 @@ import (
 type ErrorType string
 
 const (
-	ErrorTypeAPIError         ErrorType = "api_error"
-	ErrorTypeCardError        ErrorType = "card_error"
-	ErrorTypeIdempotency      ErrorType = "idempotency_error"
-	ErrorTypeInvalidRequest   ErrorType = "invalid_request_error"
-	ErrorTypeAuthentication   ErrorType = "authentication_error"
-	ErrorTypePermission       ErrorType = "invalid_request_error"
-	ErrorTypeRateLimit        ErrorType = "rate_limit_error"
+	ErrorTypeAPIError       ErrorType = "api_error"
+	ErrorTypeCardError      ErrorType = "card_error"
+	ErrorTypeIdempotency    ErrorType = "idempotency_error"
+	ErrorTypeInvalidRequest ErrorType = "invalid_request_error"
+	ErrorTypeAuthentication ErrorType = "authentication_error"
+	ErrorTypePermission     ErrorType = "invalid_request_error"
+	ErrorTypeRateLimit      ErrorType = "rate_limit_error"
 )
 
 // ErrorCode is the machine-readable code within an error.
 type ErrorCode string
 
 const (
-	CodeCardDeclined          ErrorCode = "card_declined"
-	CodeCardExpired           ErrorCode = "expired_card"
-	CodeCVCIncorrect          ErrorCode = "incorrect_cvc"
-	CodeInsufficientFunds     ErrorCode = "insufficient_funds"
+	CodeCardDeclined           ErrorCode = "card_declined"
+	CodeCardExpired            ErrorCode = "expired_card"
+	CodeCVCIncorrect           ErrorCode = "incorrect_cvc"
+	CodeInsufficientFunds      ErrorCode = "insufficient_funds"
 	CodeAuthenticationRequired ErrorCode = "authentication_required"
-	CodeInvalidAmount         ErrorCode = "amount_too_small"
-	CodeMissingParam          ErrorCode = "parameter_missing"
-	CodeInvalidParam          ErrorCode = "parameter_invalid_string"
-	CodeResourceNotFound      ErrorCode = "resource_missing"
-	CodeIdempotencyKeyInUse   ErrorCode = "idempotency_key_in_use"
-	CodeIntentInvalidState    ErrorCode = "payment_intent_invalid_state"
-	CodeCardVelocityExceeded  ErrorCode = "card_velocity_exceeded"
-	CodeRateLimitExceeded     ErrorCode = "rate_limit_exceeded"
-	CodeAPIKeyInvalid         ErrorCode = "api_key_invalid"
+	CodeInvalidAmount          ErrorCode = "amount_too_small"
+	CodeMissingParam           ErrorCode = "parameter_missing"
+	CodeInvalidParam           ErrorCode = "parameter_invalid_string"
+	CodeResourceNotFound       ErrorCode = "resource_missing"
+	CodeIdempotencyKeyInUse    ErrorCode = "idempotency_key_in_use"
+	CodeIntentInvalidState     ErrorCode = "payment_intent_invalid_state"
+	CodeCardVelocityExceeded   ErrorCode = "card_velocity_exceeded"
+	CodeRateLimitExceeded      ErrorCode = "rate_limit_exceeded"
+	CodeAPIKeyInvalid          ErrorCode = "api_key_invalid"
+	CodePermissionDenied       ErrorCode = "permission_denied"
 )
 
 // APIError is the structured error returned in all error responses.
@@ -98,6 +99,17 @@ func Unauthorized(message string) *APIError {
 		StatusCode: http.StatusUnauthorized,
 		Type:       ErrorTypeAuthentication,
 		Code:       CodeAPIKeyInvalid,
+		Message:    message,
+	}
+}
+
+// PermissionDenied is returned when an authenticated key is not allowed to perform
+// the requested operation (wrong key type, or wrong mode).
+func PermissionDenied(message string) *APIError {
+	return &APIError{
+		StatusCode: http.StatusForbidden,
+		Type:       ErrorTypePermission,
+		Code:       CodePermissionDenied,
 		Message:    message,
 	}
 }
