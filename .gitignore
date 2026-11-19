@@ -1,0 +1,41 @@
+# Secrets and local configuration. Never commit these.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+.claude/settings.local.json
+
+# Go
+*.exe
+*.test
+*.out
+bin/
+dist/
+
+# Node
+node_modules/
+npm-debug.log*
+.next/
+out/
+coverage/
+packages/tpt-pay/dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+build/
+packages/python/dist/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
