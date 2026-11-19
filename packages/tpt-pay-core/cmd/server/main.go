@@ -12,13 +12,17 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/api"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/adapter/sandbox"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/config"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/ledger"
+	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/middleware"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/payment"
+	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/secretbox"
+	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/webhook"
 )
 
 var (
@@ -37,6 +41,10 @@ func run() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+
+	if err := config.ValidateProduction(cfg); err != nil {
+		return err
 	}
 
 	setupLogger(cfg.App.LogLevel)
@@ -63,6 +71,7 @@ func run() error {
 	slog.Info("database connected")
 
 	// ── Services ──────────────────────────────────────────────────────────────
+	metricsRegistry := prometheus.NewRegistry()
 	lgr := ledger.New(pool)
 	apiKeySvc := apikey.NewService(pool)
 
@@ -75,8 +84,25 @@ func run() error {
 
 	paymentSvc := payment.NewService(pool, adpt, lgr)
 
+	// Idempotency records expire after 24 hours; purge them hourly.
+	middleware.StartIdempotencyCleanup(ctx, pool, time.Hour, 24*time.Hour)
+
 	// ── HTTP server ───────────────────────────────────────────────────────────
-	router := api.NewRouter(pool, paymentSvc, apiKeySvc)
+	secrets, err := secretbox.New(cfg.Webhook.SecretKey)
+	if err != nil {
+		return fmt.Errorf("WEBHOOK_SECRET_KEY: %w (generate with: openssl rand -base64 32)", err)
+	}
+
+	router := api.NewRouter(pool, paymentSvc, apiKeySvc, secrets, metricsRegistry)
+
+	// Webhook delivery worker: drains the outbox written by payment state changes.
+	deliveries := webhook.NewWorker(pool, secrets, webhook.WorkerConfig{
+		MaxAttempts: cfg.Webhook.MaxAttempts,
+		Window:      cfg.Webhook.RetryWindow,
+		BatchSize:   cfg.Webhook.WorkerConcurrency * 2,
+	})
+	go deliveries.Run(ctx, 2*time.Second)
+
 	srv := &http.Server{
 		Addr:         cfg.Server.Addr,
 		Handler:      router,
