@@ -40,7 +40,7 @@ This creates `~/.tptcredit/config/` with:
 ```bash
 # Download the testnet genesis file.
 curl -o ~/.tptcredit/config/genesis.json \
-  https://raw.githubusercontent.com/tpt-platform/tpt-platform/main/config/testnet-genesis.json
+  https://raw.githubusercontent.com/tpt-platform/tpt-platform/master/config/testnet-genesis.json
 
 # Verify the genesis hash.
 sha256sum ~/.tptcredit/config/genesis.json
