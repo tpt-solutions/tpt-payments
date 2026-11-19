@@ -7,7 +7,7 @@
 #
 # The final image is distroless: no shell, no package manager, non-root.
 
-FROM golang:1.25-alpine AS build
+FROM golang:1.27-alpine AS build
 WORKDIR /src
 
 COPY go.mod go.sum ./
