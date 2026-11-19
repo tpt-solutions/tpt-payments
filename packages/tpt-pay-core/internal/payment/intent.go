@@ -25,8 +25,15 @@ type CaptureMethod string
 
 const (
 	CaptureAutomatic CaptureMethod = "automatic" // capture immediately on confirm
-	CaptureManual    CaptureMethod = "manual"     // authorize now, capture later
+	CaptureManual    CaptureMethod = "manual"    // authorize now, capture later
 )
+
+// Scope identifies whose data a request may touch: the merchant, and the mode
+// (live or test) of the API key that made the request.
+type Scope struct {
+	MerchantID string
+	Livemode   bool
+}
 
 // Intent is a PaymentIntent resource.
 type Intent struct {
@@ -39,6 +46,8 @@ type Intent struct {
 	ConfirmationMethod string
 	PaymentMethodID    string
 	AdapterChargeID    string
+	AmountCaptured     int64 // set when the charge is captured; may be less than Amount
+	Livemode           bool
 	CanceledAt         *time.Time
 	CancellationReason string
 	LedgerTxnID        string
@@ -52,7 +61,7 @@ var validTransitions = map[Status][]Status{
 	StatusRequiresPaymentMethod: {StatusRequiresConfirmation, StatusCanceled},
 	StatusRequiresConfirmation:  {StatusRequiresAction, StatusProcessing, StatusRequiresCapture, StatusCanceled},
 	StatusRequiresAction:        {StatusRequiresConfirmation, StatusCanceled},
-	StatusProcessing:            {StatusSucceeded, StatusRequiresPaymentMethod},
+	StatusProcessing:            {StatusSucceeded, StatusRequiresPaymentMethod, StatusRequiresCapture},
 	StatusRequiresCapture:       {StatusSucceeded, StatusCanceled},
 	StatusSucceeded:             {}, // terminal
 	StatusCanceled:              {}, // terminal
