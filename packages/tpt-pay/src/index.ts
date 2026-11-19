@@ -1,276 +1,210 @@
 /**
- * TPT Pay JavaScript SDK
- * @module @tpt/pay
+ * TPT Pay API client for JavaScript and TypeScript.
+ *
+ * Keys:
+ *   - Secret keys (sk_test_..., sk_live_...) may call every endpoint. Use them on servers only.
+ *   - Publishable keys (pk_test_..., pk_live_...) may retrieve and confirm payment intents,
+ *     which is what a browser checkout needs. Other calls are rejected before any request.
+ *
+ * Writes carry an Idempotency-Key. If you do not pass one, a key is generated for the call
+ * and reused across the client's own retries, so a retried payment is not created twice.
  */
 
-import * as CryptoJS from 'crypto-js';
+import { errorFromResponse, TPTPayError } from './errors';
+import type {
+  CancelPaymentIntentParams,
+  CapturePaymentIntentParams,
+  ConfirmPaymentIntentParams,
+  CreatePaymentIntentParams,
+  Invoice,
+  PaymentIntent,
+  Refund,
+  RequestOptions,
+  Subscription,
+} from './types';
 
-export interface TPTPayConfig {
-  publishableKey: string;
+export { TPTPayError, SignatureVerificationError } from './errors';
+export type * from './types';
+
+export const DEFAULT_API_BASE = 'https://api.tpt-payments.com/v1';
+
+export interface TPTPayOptions {
+  /** A secret (sk_...) or publishable (pk_...) key. */
+  apiKey: string;
+  /** Override the API base URL, for self-hosted deployments or local development. */
   apiBaseUrl?: string;
-  version?: string;
+  /** Per-attempt timeout in milliseconds. Default 30000. */
+  timeoutMs?: number;
+  /** Retries for connection failures and retryable responses (409, 429, 5xx). Default 2. */
+  maxRetries?: number;
+  /** Base delay between retries in milliseconds, doubled each attempt with jitter. Default 500. */
+  retryBaseDelayMs?: number;
 }
 
-export interface PaymentIntent {
-  id: string;
-  amount: number;
-  currency: string;
-  status: string;
-  client_secret: string;
-  metadata?: Record<string, string>;
-  created_at: number;
-}
+type Method = 'GET' | 'POST' | 'DELETE';
 
-export interface Refund {
-  id: string;
-  payment_intent_id: string;
-  amount: number;
-  currency: string;
-  status: string;
-  reason?: string;
-  created_at: number;
-}
+const RETRYABLE = new Set([409, 429, 500, 502, 503, 504]);
 
-export interface Subscription {
-  id: string;
-  customer_id: string;
-  price_id: string;
-  status: string;
-  current_period_start: number;
-  current_period_end: number;
-  cancel_at_period_end: boolean;
-  created_at: number;
-}
-
-export interface Invoice {
-  id: string;
-  number: string;
-  status: string;
-  total: number;
-  currency: string;
-  hosted_url: string;
-  due_at: number;
-  created_at: number;
-}
-
-export interface CreatePaymentIntentOptions {
-  amount: number;
-  currency: string;
-  metadata?: Record<string, string>;
-}
-
-export interface ConfirmPaymentOptions {
-  payment_method: string;
-  return_url?: string;
-}
-
-/**
- * Main TPTPay client class
- */
 export class TPTPay {
-  private publishableKey: string;
-  private apiBaseUrl: string;
-  private version: string;
+  private readonly apiKey: string;
+  private readonly apiBaseUrl: string;
+  private readonly timeoutMs: number;
+  private readonly maxRetries: number;
+  private readonly retryBaseDelayMs: number;
 
-  constructor(config: TPTPayConfig) {
-    this.publishableKey = config.publishableKey;
-    this.apiBaseUrl = config.apiBaseUrl || 'https://api.tptpay.com/v1';
-    this.version = config.version || '2024-06-20';
+  constructor(options: TPTPayOptions) {
+    if (!options || typeof options.apiKey !== 'string' || !/^(sk|pk)_/.test(options.apiKey)) {
+      throw new TypeError('apiKey must be a secret (sk_...) or publishable (pk_...) key');
+    }
+    const maxRetries = options.maxRetries ?? 2;
+    if (!Number.isInteger(maxRetries) || maxRetries < 0) {
+      throw new RangeError('maxRetries must be a non-negative integer');
+    }
+    this.apiKey = options.apiKey;
+    this.apiBaseUrl = (options.apiBaseUrl ?? DEFAULT_API_BASE).replace(/\/+$/, '');
+    this.timeoutMs = options.timeoutMs ?? 30_000;
+    this.maxRetries = maxRetries;
+    this.retryBaseDelayMs = options.retryBaseDelayMs ?? 500;
   }
 
-  /**
-   * Payment Intents API
-   */
-  public paymentIntents = {
-    /**
-     * Create a new PaymentIntent
-     */
-    create: async (options: CreatePaymentIntentOptions): Promise<PaymentIntent> => {
-      return this.request<PaymentIntent>('/payment_intents', 'POST', options);
-    },
+  /** Payment intents. Retrieve and confirm also work with a publishable key. */
+  readonly paymentIntents = {
+    create: (params: CreatePaymentIntentParams, options?: RequestOptions): Promise<PaymentIntent> =>
+      this.request<PaymentIntent>('POST', '/payment_intents', { body: params, secret: true, options }),
 
-    /**
-     * Retrieve an existing PaymentIntent
-     */
-    retrieve: async (id: string): Promise<PaymentIntent> => {
-      return this.request<PaymentIntent>(`/payment_intents/${id}`, 'GET');
-    },
+    retrieve: (id: string): Promise<PaymentIntent> =>
+      this.request<PaymentIntent>('GET', `/payment_intents/${encodeURIComponent(id)}`),
 
-    /**
-     * Confirm a PaymentIntent
-     */
-    confirm: async (id: string, options: ConfirmPaymentOptions): Promise<PaymentIntent> => {
-      return this.request<PaymentIntent>(`/payment_intents/${id}/confirm`, 'POST', options);
-    },
+    confirm: (id: string, params: ConfirmPaymentIntentParams, options?: RequestOptions): Promise<PaymentIntent> =>
+      this.request<PaymentIntent>('POST', `/payment_intents/${encodeURIComponent(id)}/confirm`, { body: params, options }),
 
-    /**
-     * Cancel a PaymentIntent
-     */
-    cancel: async (id: string): Promise<PaymentIntent> => {
-      return this.request<PaymentIntent>(`/payment_intents/${id}/cancel`, 'POST');
-    }
+    capture: (id: string, params: CapturePaymentIntentParams = {}, options?: RequestOptions): Promise<PaymentIntent> =>
+      this.request<PaymentIntent>('POST', `/payment_intents/${encodeURIComponent(id)}/capture`, {
+        body: params,
+        secret: true,
+        options,
+      }),
+
+    cancel: (id: string, params: CancelPaymentIntentParams = {}, options?: RequestOptions): Promise<PaymentIntent> =>
+      this.request<PaymentIntent>('POST', `/payment_intents/${encodeURIComponent(id)}/cancel`, {
+        body: params,
+        secret: true,
+        options,
+      }),
   };
 
-  /**
-   * Refunds API
-   */
-  public refunds = {
-    /**
-     * Create a new Refund
-     */
-    create: async (paymentIntentId: string, amount: number, reason?: string): Promise<Refund> => {
-      return this.request<Refund>('/refunds', 'POST', {
-        payment_intent_id: paymentIntentId,
-        amount,
-        reason
-      });
-    },
+  /** Planned: not yet served by the core service. Calls fail with 404 until implemented. */
+  readonly refunds = {
+    create: (params: { payment_intent: string; amount?: number; reason?: string }, options?: RequestOptions): Promise<Refund> =>
+      this.request<Refund>('POST', '/refunds', { body: params, secret: true, options }),
 
-    /**
-     * Retrieve an existing Refund
-     */
-    retrieve: async (id: string): Promise<Refund> => {
-      return this.request<Refund>(`/refunds/${id}`, 'GET');
-    },
-
-    /**
-     * List all Refunds
-     */
-    list: async (params?: { limit?: number; starting_after?: string }): Promise<{ data: Refund[], has_more: boolean }> => {
-      const query = params ? '?' + new URLSearchParams(params as any).toString() : '';
-      return this.request<{ data: Refund[], has_more: boolean }>(`/refunds${query}`, 'GET');
-    }
+    retrieve: (id: string): Promise<Refund> =>
+      this.request<Refund>('GET', `/refunds/${encodeURIComponent(id)}`, { secret: true }),
   };
 
-  /**
-   * Subscriptions API
-   */
-  public subscriptions = {
-    /**
-     * Create a new Subscription
-     */
-    create: async (customerId: string, priceId: string, options?: { trial_days?: number }): Promise<Subscription> => {
-      return this.request<Subscription>('/subscriptions', 'POST', {
-        customer_id: customerId,
-        price_id: priceId,
-        ...options
-      });
-    },
+  /** Planned: not yet served by the core service. */
+  readonly subscriptions = {
+    create: (params: { customer: string; price: string }, options?: RequestOptions): Promise<Subscription> =>
+      this.request<Subscription>('POST', '/subscriptions', { body: params, secret: true, options }),
 
-    /**
-     * Cancel a Subscription
-     */
-    cancel: async (id: string, atPeriodEnd: boolean = false): Promise<Subscription> => {
-      return this.request<Subscription>(`/subscriptions/${id}/cancel`, 'POST', {
-        at_period_end: atPeriodEnd
-      });
-    },
-
-    /**
-     * Retrieve an existing Subscription
-     */
-    retrieve: async (id: string): Promise<Subscription> => {
-      return this.request<Subscription>(`/subscriptions/${id}`, 'GET');
-    }
+    cancel: (id: string, params: { at_period_end?: boolean } = {}, options?: RequestOptions): Promise<Subscription> =>
+      this.request<Subscription>('POST', `/subscriptions/${encodeURIComponent(id)}/cancel`, {
+        body: params,
+        secret: true,
+        options,
+      }),
   };
 
-  /**
-   * Invoices API
-   */
-  public invoices = {
-    /**
-     * Retrieve an existing Invoice
-     */
-    retrieve: async (id: string): Promise<Invoice> => {
-      return this.request<Invoice>(`/invoices/${id}`, 'GET');
-    },
+  /** Planned: not yet served by the core service. */
+  readonly invoices = {
+    retrieve: (id: string): Promise<Invoice> =>
+      this.request<Invoice>('GET', `/invoices/${encodeURIComponent(id)}`, { secret: true }),
 
-    /**
-     * Pay an Invoice
-     */
-    pay: async (id: string, paymentMethodId?: string): Promise<Invoice> => {
-      return this.request<Invoice>(`/invoices/${id}/pay`, 'POST', {
-        payment_method: paymentMethodId
+    pay: (id: string, options?: RequestOptions): Promise<Invoice> =>
+      this.request<Invoice>('POST', `/invoices/${encodeURIComponent(id)}/pay`, { secret: true, options }),
+  };
+
+  private async request<T>(
+    method: Method,
+    path: string,
+    opts: { body?: unknown; secret?: boolean; options?: RequestOptions } = {},
+  ): Promise<T> {
+    if (opts.secret && !this.apiKey.startsWith('sk_')) {
+      throw new TPTPayError({
+        message: `${method} ${path} requires a secret key (sk_...). Publishable keys cannot perform this operation.`,
+        status: 403,
+        type: 'invalid_request_error',
+        code: 'permission_denied',
       });
     }
-  };
 
-  /**
-   * Webhook signature verification
-   */
-  public webhooks = {
-    /**
-     * Verify webhook signature
-     */
-    constructEvent: (payload: string, signatureHeader: string, secret: string, tolerance: number = 300): any => {
-      const parts = signatureHeader.split(',');
-      
-      let timestamp: number = 0;
-      let signature: string = '';
+    const isWrite = method !== 'GET';
+    const idempotencyKey = isWrite ? (opts.options?.idempotencyKey ?? randomKey()) : undefined;
+    const attempts = this.maxRetries + 1;
 
-      for (const part of parts) {
-        const [key, value] = part.split('=', 2);
-        if (key === 't') timestamp = parseInt(value, 10);
-        if (key === 'v1') signature = value;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const last = attempt === attempts - 1;
+      let response: Response;
+      try {
+        response = await this.send(method, path, opts.body, idempotencyKey);
+      } catch (cause) {
+        if (last) {
+          throw new TPTPayError({
+            message: `could not reach the TPT Pay API: ${(cause as Error).message}`,
+            type: 'api_connection_error',
+          });
+        }
+        await this.backoff(attempt);
+        continue;
       }
 
-      if (timestamp === 0 || !signature) {
-        throw new Error('Invalid signature header format');
+      const text = await response.text();
+      if (response.ok) {
+        return (text ? JSON.parse(text) : {}) as T;
       }
 
-      const now = Math.floor(Date.now() / 1000);
-      if (now - timestamp > tolerance) {
-        throw new Error('Webhook timestamp outside tolerance window');
+      const error = errorFromResponse(response.status, text, response.headers.get('X-Request-ID') ?? undefined);
+      if (RETRYABLE.has(response.status) && !last) {
+        await this.backoff(attempt);
+        continue;
       }
-
-      const signedPayload = `${timestamp}.${payload}`;
-      const expectedSignature = CryptoJS.HmacSHA256(signedPayload, secret).toString(CryptoJS.enc.Hex);
-
-      if (!this.secureCompare(signature, expectedSignature)) {
-        throw new Error('Invalid webhook signature');
-      }
-
-      return JSON.parse(payload);
+      throw error;
     }
-  };
+    // Unreachable: the loop always returns or throws on its final attempt.
+    throw new TPTPayError({ message: 'request failed' });
+  }
 
-  private async request<T>(path: string, method: string, body?: any): Promise<T> {
+  private async send(method: Method, path: string, body: unknown, idempotencyKey?: string): Promise<Response> {
     const headers: Record<string, string> = {
-      'Authorization': `Bearer ${this.publishableKey}`,
-      'TPT-Version': this.version,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.apiKey}`,
+      Accept: 'application/json',
     };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
 
-    const options: RequestInit = {
-      method,
-      headers,
-      credentials: 'same-origin'
-    };
-
-    if (body && method !== 'GET') {
-      options.body = JSON.stringify(body);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      return await fetch(`${this.apiBaseUrl}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
     }
-
-    const response = await fetch(`${this.apiBaseUrl}${path}`, options);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      throw new Error(error.message || `Request failed with status ${response.status}`);
-    }
-
-    return response.json() as Promise<T>;
   }
 
-  private secureCompare(a: string, b: string): boolean {
-    if (a.length !== b.length) return false;
-    
-    let result = 0;
-    for (let i = 0; i < a.length; i++) {
-      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    }
-    
-    return result === 0;
+  private backoff(attempt: number): Promise<void> {
+    const base = this.retryBaseDelayMs * 2 ** attempt;
+    const delay = Math.min(base, 8_000) * (0.5 + Math.random() / 2);
+    return new Promise((resolve) => setTimeout(resolve, delay));
   }
+}
+
+function randomKey(): string {
+  return globalThis.crypto.randomUUID();
 }
 
 export default TPTPay;

@@ -1,47 +1,63 @@
 {
   "name": "@tpt/pay",
-  "version": "1.0.0",
-  "description": "TPT Pay JavaScript SDK",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
-  "browser": "./dist/browser/tpt-pay.js",
-  "types": "./dist/types/index.d.ts",
+  "version": "0.1.0",
+  "description": "TPT Pay API client for JavaScript and TypeScript (pre-release)",
+  "license": "(MIT OR Apache-2.0)",
+  "author": "TPT Solutions",
+  "keywords": ["payments", "tpt", "api", "sdk"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tpt-solutions/tpt-payments.git",
+    "directory": "packages/tpt-pay"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js",
-      "browser": "./dist/browser/tpt-pay.js",
-      "types": "./dist/types/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./webhooks": {
+      "import": {
+        "types": "./dist/webhooks.d.mts",
+        "default": "./dist/webhooks.mjs"
+      },
+      "require": {
+        "types": "./dist/webhooks.d.ts",
+        "default": "./dist/webhooks.js"
+      }
     }
   },
   "files": [
     "dist/"
   ],
+  "sideEffects": false,
   "scripts": {
-    "build": "npm run build:cjs && npm run build:esm && npm run build:browser && npm run build:types",
-    "build:cjs": "tsc --module commonjs --outDir dist/cjs",
-    "build:esm": "tsc --module esnext --outDir dist/esm",
-    "build:browser": "esbuild src/index.ts --bundle --minify --sourcemap --outfile=dist/browser/tpt-pay.js --global-name=TPTPay",
-    "build:types": "tsc --declaration --emitDeclarationOnly --outDir dist/types",
+    "build": "tsup src/index.ts src/webhooks.ts --format cjs,esm --dts --clean --out-dir dist",
+    "typecheck": "tsc --noEmit",
     "test": "jest",
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src test --ext .ts",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
-  "keywords": [
-    "payments",
-    "tpt",
-    "api",
-    "sdk"
-  ],
-  "author": "TPT Payments",
-  "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.4.0",
-    "esbuild": "^0.20.0",
-    "jest": "^29.7.0",
+    "@types/jest": "^29.5.12",
     "@types/node": "^20.12.0",
-    "@types/crypto-js": "^4.2.0"
-  },
-  "dependencies": {
-    "crypto-js": "^4.2.0"
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.0"
   }
 }
