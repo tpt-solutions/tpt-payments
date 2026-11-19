@@ -1,0 +1,720 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "TPT Pay API",
+    "version": "0.1.0",
+    "description": "Pre-release. Describes only the endpoints the core service serves. Stripe-compatible planned endpoints are listed in the compatibility report, not here."
+  },
+  "servers": [
+    {
+      "url": "https://api.tpt-payments.com/v1",
+      "description": "Hosted API (domain not yet confirmed)"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A secret (sk_) or publishable (pk_) API key."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "message"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "example": "invalid_request_error"
+              },
+              "code": {
+                "type": "string",
+                "example": "parameter_missing"
+              },
+              "message": {
+                "type": "string"
+              },
+              "param": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PaymentIntent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "payment_intent"
+            ]
+          },
+          "amount": {
+            "type": "integer",
+            "description": "Minor currency units (cents for USD)."
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "requires_payment_method",
+              "requires_confirmation",
+              "requires_action",
+              "processing",
+              "requires_capture",
+              "succeeded",
+              "canceled"
+            ]
+          },
+          "capture_method": {
+            "type": "string",
+            "enum": [
+              "automatic",
+              "manual"
+            ]
+          },
+          "confirmation_method": {
+            "type": "string"
+          },
+          "created": {
+            "type": "integer",
+            "description": "Unix seconds."
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "payment_method": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "amount_captured": {
+            "type": "integer"
+          },
+          "canceled_at": {
+            "type": "integer"
+          },
+          "cancellation_reason": {
+            "type": "string"
+          },
+          "ledger_transaction_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "WebhookEndpoint": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "webhook_endpoint"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "enabled_events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "enabled",
+              "disabled"
+            ]
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "secret_prefix": {
+            "type": "string"
+          },
+          "created": {
+            "type": "integer"
+          }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "api_key"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "secret",
+              "publishable"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "test",
+              "live"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "created": {
+            "type": "integer"
+          },
+          "secret": {
+            "type": "string",
+            "description": "Returned once, at creation only."
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/payment_intents": {
+      "post": {
+        "summary": "Create a payment intent",
+        "description": "Requires a secret key.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "currency"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "capture_method": {
+                    "type": "string",
+                    "enum": [
+                      "automatic",
+                      "manual"
+                    ]
+                  },
+                  "confirmation_method": {
+                    "type": "string",
+                    "enum": [
+                      "automatic",
+                      "manual"
+                    ]
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntent"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/payment_intents/{id}": {
+      "get": {
+        "summary": "Retrieve a payment intent",
+        "description": "Any valid key. Only intents in the key's mode and merchant are visible.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntent"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/payment_intents/{id}/confirm": {
+      "post": {
+        "summary": "Attach a payment method and authorize",
+        "description": "Any valid key, including publishable keys (browser checkout). For automatic capture the payment is captured and posted to the ledger.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "payment_method"
+                ],
+                "properties": {
+                  "payment_method": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntent"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "description": "Card declined",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The card network did not return a definitive result. The intent stays in processing; reconcile before retrying.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payment_intents/{id}/capture": {
+      "post": {
+        "summary": "Capture an authorized payment",
+        "description": "Requires a secret key and status requires_capture.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amount_to_capture": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntent"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/payment_intents/{id}/cancel": {
+      "post": {
+        "summary": "Cancel a payment intent",
+        "description": "Requires a secret key. Not allowed once captured.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cancellation_reason": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntent"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/webhook_endpoints": {
+      "post": {
+        "summary": "Create a webhook endpoint",
+        "description": "Requires a secret key. The signing secret is returned once.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "https in live mode; http loopback allowed in test mode."
+                  },
+                  "enabled_events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Event types, or \"*\"."
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created (includes secret)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpoint"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/webhook_endpoints/{id}": {
+      "get": {
+        "summary": "Retrieve a webhook endpoint",
+        "description": "Requires a secret key.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpoint"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Disable a webhook endpoint",
+        "description": "Requires a secret key. The endpoint is disabled, not removed, so delivery history is kept.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api_keys": {
+      "post": {
+        "summary": "Create an API key",
+        "description": "Requires a secret key. New keys are created in the caller's mode.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "secret",
+                      "publishable"
+                    ]
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "test",
+                      "live"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Created (includes the raw key once)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKey"
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api_keys/{id}": {
+      "delete": {
+        "summary": "Revoke an API key",
+        "description": "Requires a secret key.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Liveness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The process is running."
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Readiness",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The database is reachable."
+          },
+          "503": {
+            "description": "The database is unreachable."
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Prometheus metrics",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Text exposition format."
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "This document",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.0 document."
+          }
+        }
+      }
+    }
+  },
+  "parameters": {
+    "Id": {
+      "name": "id",
+      "in": "path",
+      "required": true,
+      "schema": {
+        "type": "string"
+      }
+    },
+    "IdempotencyKey": {
+      "name": "Idempotency-Key",
+      "in": "header",
+      "required": false,
+      "description": "Makes a write safe to retry. The same key with a different request returns 422. Keys expire after 24 hours.",
+      "schema": {
+        "type": "string",
+        "maxLength": 255
+      }
+    }
+  }
+}

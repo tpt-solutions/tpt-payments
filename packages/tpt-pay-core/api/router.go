@@ -2,35 +2,49 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/api/handlers"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/middleware"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/payment"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/secretbox"
 )
 
 // NewRouter builds and returns the fully configured HTTP router.
+//
+// reg receives the HTTP metrics served at /metrics. Pass a fresh registry in tests.
 func NewRouter(
 	pool *pgxpool.Pool,
 	paymentSvc *payment.Service,
 	apiKeySvc *apikey.Service,
+	secrets *secretbox.Box,
+	reg *prometheus.Registry,
 ) http.Handler {
 	r := chi.NewRouter()
+	metrics := middleware.NewMetrics(reg)
 
 	// ── Global middleware ─────────────────────────────────────────────────────
-	r.Use(chimw.RealIP)
+	// No RealIP: it trusts any client's X-Forwarded-For. Client addresses come from the
+	// connection until trusted proxies are configured.
 	r.Use(middleware.RequestID)
 	r.Use(chimw.Recoverer)
-	r.Use(chimw.Compress(5))
+	r.Use(middleware.LimitBody)
+	r.Use(metrics.Observe)
 
-	// ── Public endpoints ──────────────────────────────────────────────────────
+	// ── Operational endpoints (no authentication) ─────────────────────────────
 	r.Get("/health", healthHandler)
+	r.Get("/readyz", readyHandler(pool))
+	r.Get("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}).ServeHTTP)
 	r.Get("/openapi.json", openAPIHandler)
 
 	// ── Authenticated API (all routes under /v1 require a valid API key) ──────
@@ -38,36 +52,60 @@ func NewRouter(
 		r.Use(middleware.RequireAuth(apiKeySvc))
 		r.Use(middleware.Idempotency(pool))
 
+		// Permissions: "secret" routes perform server-side operations and reject
+		// publishable keys. Any valid key may retrieve an intent and confirm it, which is
+		// what a browser checkout needs. Data access is always scoped to the key's mode.
+		secret := middleware.RequireSecretKey
+
 		// Payment intents
 		pi := handlers.NewPaymentIntents(paymentSvc)
-		r.Post("/payment_intents", pi.Create)
+		r.With(secret).Post("/payment_intents", pi.Create)
 		r.Get("/payment_intents/{id}", pi.Retrieve)
 		r.Post("/payment_intents/{id}/confirm", pi.Confirm)
-		r.Post("/payment_intents/{id}/capture", pi.Capture)
-		r.Post("/payment_intents/{id}/cancel", pi.Cancel)
+		r.With(secret).Post("/payment_intents/{id}/capture", pi.Capture)
+		r.With(secret).Post("/payment_intents/{id}/cancel", pi.Cancel)
 
 		// Webhook endpoints
-		we := handlers.NewWebhookEndpoints(pool)
-		r.Post("/webhook_endpoints", we.Create)
-		r.Get("/webhook_endpoints/{id}", we.Retrieve)
-		r.Delete("/webhook_endpoints/{id}", we.Delete)
+		we := handlers.NewWebhookEndpoints(pool, secrets)
+		r.With(secret).Post("/webhook_endpoints", we.Create)
+		r.With(secret).Get("/webhook_endpoints/{id}", we.Retrieve)
+		r.With(secret).Delete("/webhook_endpoints/{id}", we.Delete)
 
 		// API keys
 		ak := handlers.NewAPIKeys(apiKeySvc)
-		r.Post("/api_keys", ak.Create)
-		r.Delete("/api_keys/{id}", ak.Revoke)
+		r.With(secret).Post("/api_keys", ak.Create)
+		r.With(secret).Delete("/api_keys/{id}", ak.Revoke)
 	})
 
 	return r
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
+	// Liveness: the process is up. It does not check dependencies.
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
+// readyHandler reports readiness: the database answers. Orchestrators use it to decide
+// whether to route traffic here.
+func readyHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := pool.Ping(ctx); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "unavailable", "database": "unreachable"})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready", "database": "ok"})
+	}
+}
+
 func openAPIHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO: serve the generated OpenAPI spec from api/openapi.json
-	http.Error(w, "OpenAPI spec not yet generated — run `make openapi`", http.StatusNotImplemented)
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(openAPISpec)
 }

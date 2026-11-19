@@ -5,9 +5,19 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/middleware"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/payment"
 )
+
+// scopeOf derives the merchant and mode the request may act on from its API key.
+func scopeOf(r *http.Request) payment.Scope {
+	key := middleware.AuthenticatedKey(r.Context())
+	return payment.Scope{
+		MerchantID: middleware.MerchantID(r.Context()),
+		Livemode:   key != nil && key.Mode == apikey.ModeLive,
+	}
+}
 
 // PaymentIntents groups the payment intent HTTP handlers.
 type PaymentIntents struct {
@@ -33,12 +43,16 @@ func (h *PaymentIntents) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := payment.ValidCaptureMethod(body.CaptureMethod); err != nil {
+		respondError(w, r, err)
+		return
+	}
 	captureMethod := payment.CaptureAutomatic
 	if body.CaptureMethod == "manual" {
 		captureMethod = payment.CaptureManual
 	}
 
-	intent, err := h.svc.Create(r.Context(), middleware.MerchantID(r.Context()), payment.CreateParams{
+	intent, err := h.svc.Create(r.Context(), scopeOf(r), payment.CreateParams{
 		Amount:             body.Amount,
 		Currency:           body.Currency,
 		CaptureMethod:      captureMethod,
@@ -56,7 +70,7 @@ func (h *PaymentIntents) Create(w http.ResponseWriter, r *http.Request) {
 // Retrieve handles GET /v1/payment_intents/:id
 func (h *PaymentIntents) Retrieve(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	intent, err := h.svc.Retrieve(r.Context(), id, middleware.MerchantID(r.Context()))
+	intent, err := h.svc.Retrieve(r.Context(), id, scopeOf(r))
 	if err != nil {
 		respondError(w, r, err)
 		return
@@ -76,7 +90,7 @@ func (h *PaymentIntents) Confirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	intent, err := h.svc.Confirm(r.Context(), id, middleware.MerchantID(r.Context()),
+	intent, err := h.svc.Confirm(r.Context(), id, scopeOf(r),
 		payment.ConfirmParams{PaymentMethodID: body.PaymentMethod},
 	)
 	if err != nil {
@@ -93,9 +107,12 @@ func (h *PaymentIntents) Capture(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		AmountToCapture int64 `json:"amount_to_capture"`
 	}
-	_ = decodeJSON(r, &body) // optional body
+	if err := decodeOptionalJSON(r, &body); err != nil {
+		respondError(w, r, errBadJSON(err))
+		return
+	}
 
-	intent, err := h.svc.Capture(r.Context(), id, middleware.MerchantID(r.Context()),
+	intent, err := h.svc.Capture(r.Context(), id, scopeOf(r),
 		payment.CaptureParams{AmountToCapture: body.AmountToCapture},
 	)
 	if err != nil {
@@ -112,9 +129,12 @@ func (h *PaymentIntents) Cancel(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		CancellationReason string `json:"cancellation_reason"`
 	}
-	_ = decodeJSON(r, &body)
+	if err := decodeOptionalJSON(r, &body); err != nil {
+		respondError(w, r, errBadJSON(err))
+		return
+	}
 
-	intent, err := h.svc.Cancel(r.Context(), id, middleware.MerchantID(r.Context()),
+	intent, err := h.svc.Cancel(r.Context(), id, scopeOf(r),
 		payment.CancelParams{Reason: body.CancellationReason},
 	)
 	if err != nil {
@@ -126,28 +146,5 @@ func (h *PaymentIntents) Cancel(w http.ResponseWriter, r *http.Request) {
 
 // intentResponse converts an internal Intent to the Stripe-compatible wire format.
 func intentResponse(i *payment.Intent) map[string]interface{} {
-	resp := map[string]interface{}{
-		"id":                   i.ID,
-		"object":               "payment_intent",
-		"amount":               i.Amount,
-		"currency":             i.Currency,
-		"status":               string(i.Status),
-		"capture_method":       string(i.CaptureMethod),
-		"confirmation_method":  i.ConfirmationMethod,
-		"created":              i.CreatedAt.Unix(),
-		"livemode":             false,
-	}
-	if i.PaymentMethodID != "" {
-		resp["payment_method"] = i.PaymentMethodID
-	}
-	if i.Metadata != nil {
-		resp["metadata"] = i.Metadata
-	}
-	if i.CanceledAt != nil {
-		resp["canceled_at"] = i.CanceledAt.Unix()
-	}
-	if i.CancellationReason != "" {
-		resp["cancellation_reason"] = i.CancellationReason
-	}
-	return resp
+	return payment.Wire(i)
 }

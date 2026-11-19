@@ -1,16 +1,19 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
+	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/middleware"
 )
 
-// APIKeys groups the API key HTTP handlers.
+// APIKeys groups the API key HTTP handlers. Both routes require a secret key (enforced
+// by the router).
 type APIKeys struct {
 	svc *apikey.Service
 }
@@ -21,6 +24,9 @@ func NewAPIKeys(svc *apikey.Service) *APIKeys {
 }
 
 // Create handles POST /v1/api_keys
+//
+// New keys are always created in the calling key's mode: a test key cannot mint a live
+// key, and a live key cannot mint a test key.
 func (h *APIKeys) Create(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Type string `json:"type"`
@@ -32,22 +38,43 @@ func (h *APIKeys) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keyType := apikey.TypeSecret
-	if body.Type == "publishable" {
-		keyType = apikey.TypePublishable
-	}
-	mode := apikey.ModeTest
-	if body.Mode == "live" {
-		mode = apikey.ModeLive
+	caller := middleware.AuthenticatedKey(r.Context())
+	if caller == nil {
+		respondError(w, r, apierrors.Unauthorized("No API key provided."))
+		return
 	}
 
-	result, err := h.svc.Generate(r.Context(), middleware.MerchantID(r.Context()), body.Name, keyType, mode)
+	keyType := apikey.TypeSecret
+	switch body.Type {
+	case "", "secret":
+	case "publishable":
+		keyType = apikey.TypePublishable
+	default:
+		respondError(w, r, apierrors.InvalidParam("type", "type must be 'secret' or 'publishable'"))
+		return
+	}
+
+	mode := caller.Mode
+	if body.Mode != "" {
+		requested := apikey.Mode(body.Mode)
+		if requested != apikey.ModeTest && requested != apikey.ModeLive {
+			respondError(w, r, apierrors.InvalidParam("mode", "mode must be 'test' or 'live'"))
+			return
+		}
+		if requested != caller.Mode {
+			respondError(w, r, apierrors.PermissionDenied(
+				"A "+string(caller.Mode)+" key cannot create a "+string(requested)+" key."))
+			return
+		}
+	}
+
+	result, err := h.svc.Generate(r.Context(), caller.MerchantID, body.Name, keyType, mode)
 	if err != nil {
 		respondError(w, r, err)
 		return
 	}
 
-	// Include raw key only in create response — it is never retrievable again.
+	// The raw key is returned only here; it cannot be retrieved again.
 	resp := keyResponse(result.Key)
 	resp["secret"] = result.RawKey
 	respond(w, r, http.StatusOK, resp)
@@ -57,8 +84,12 @@ func (h *APIKeys) Create(w http.ResponseWriter, r *http.Request) {
 func (h *APIKeys) Revoke(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	err := h.svc.Revoke(r.Context(), id, middleware.MerchantID(r.Context()))
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		respondError(w, r, apierrors.NotFound("api_key", id))
+		return
+	}
+	if err != nil {
+		respondError(w, r, err)
 		return
 	}
 	respond(w, r, http.StatusOK, map[string]interface{}{
@@ -70,11 +101,11 @@ func (h *APIKeys) Revoke(w http.ResponseWriter, r *http.Request) {
 
 func keyResponse(k *apikey.Key) map[string]interface{} {
 	return map[string]interface{}{
-		"id":         k.ID,
-		"object":     "api_key",
-		"type":       string(k.Type),
-		"mode":       string(k.Mode),
-		"name":       k.Name,
-		"created":    k.CreatedAt.Unix(),
+		"id":      k.ID,
+		"object":  "api_key",
+		"type":    string(k.Type),
+		"mode":    string(k.Mode),
+		"name":    k.Name,
+		"created": k.CreatedAt.Unix(),
 	}
 }
