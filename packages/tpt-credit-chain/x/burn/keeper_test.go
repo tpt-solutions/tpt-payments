@@ -3,6 +3,7 @@ package burn_test
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"cosmossdk.io/math"
@@ -933,4 +934,51 @@ func TestEventAnnualBurnSummary_Attributes(t *testing.T) {
 	assert.Contains(t, attrs, "total_burned")
 	assert.Contains(t, attrs, "reserve_address")
 	assert.Contains(t, attrs, testReserveAddr)
+}
+// ── Test: remainder is conserved in the reserve ──────────────────────────────────
+
+func TestBeginBlock_RemainderCreditedToReserve(t *testing.T) {
+	mockIssuance := NewMockIssuanceKeeper(1)
+	mockIssuance.RegisterAccount(testAddrs[0], 10_000_000_001)
+	mockIssuance.RegisterAccount(testAddrs[1], 6_000_000_000)
+	mockIssuance.RegisterAccount(testAddrs[2], 2_000_000_000)
+
+	k := burn.NewKeeper(mockIssuance, 1, testReserveAddr)
+	before := int64(10_000_000_001 + 6_000_000_000 + 2_000_000_000)
+
+	summary := k.BeginBlock(1 + burn.BlocksPerYear)
+	require.NotNil(t, summary)
+
+	after := int64(0)
+	for _, addr := range testAddrs {
+		after += mockIssuance.GetAccountBalance(addr).Int64()
+	}
+	reserve := k.ReserveBalance().Int64()
+
+	assert.Equal(t, int64(1), reserve, "the rounding remainder goes to the reserve")
+	assert.Equal(t, before, after+reserve, "burned ucredit must equal redistributed plus reserve")
+}
+
+func TestBeginBlock_ReserveAccumulatesAcrossYears(t *testing.T) {
+	mockIssuance := NewMockIssuanceKeeper(1)
+	mockIssuance.RegisterAccount(testAddrs[0], 10_000_000_001)
+	mockIssuance.RegisterAccount(testAddrs[1], 6_000_000_000)
+	mockIssuance.RegisterAccount(testAddrs[2], 2_000_000_000)
+
+	k := burn.NewKeeper(mockIssuance, 1, testReserveAddr)
+	k.BeginBlock(1 + burn.BlocksPerYear)
+	// Year 2: the three humans again hold 6,000,000,000 each; the total divides evenly.
+	k.BeginBlock(1 + 2*burn.BlocksPerYear)
+
+	assert.Equal(t, int64(1), k.ReserveBalance().Int64(), "year 2 has no remainder, so the reserve keeps year 1's")
+}
+
+// A balance that does not fit in int64 must halt the burn rather than wrap to a wrong amount.
+func TestBeginBlock_OversizedBalanceHaltsInsteadOfTruncating(t *testing.T) {
+	mockIssuance := NewMockIssuanceKeeper(1)
+	mockIssuance.RegisterAccount(testAddrs[0], 1)
+	mockIssuance.Accounts[testAddrs[0]].Balance = math.NewIntFromBigInt(new(big.Int).Lsh(big.NewInt(1), 70))
+
+	k := burn.NewKeeper(mockIssuance, 1, testReserveAddr)
+	assert.Panics(t, func() { k.BeginBlock(1 + burn.BlocksPerYear) })
 }

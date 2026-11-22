@@ -87,6 +87,10 @@ type Keeper struct {
 	// reserveAddress is the address for protocol reserve remainder.
 	reserveAddress string
 
+	// reserveBalance holds burn remainders: the redistribution rounds down, and the leftover
+	// ucredit is credited here so supply is conserved. It is not a human account.
+	reserveBalance math.Int
+
 	// lastBurnYear is the last year a burn was executed (0 = none yet).
 	lastBurnYear int64
 }
@@ -102,6 +106,7 @@ func NewKeeper(issuanceKeeper IssuanceKeeper, genesisHeight int64, reserveAddres
 		blockHeight:    genesisHeight,
 		currentYear:    1,
 		reserveAddress: reserveAddress,
+		reserveBalance: math.ZeroInt(),
 		lastBurnYear:   0,
 	}
 }
@@ -117,6 +122,7 @@ func NewKeeperWithEvents(issuanceKeeper IssuanceKeeper, events EventBus, genesis
 		blockHeight:    genesisHeight,
 		currentYear:    1,
 		reserveAddress: reserveAddress,
+		reserveBalance: math.ZeroInt(),
 		lastBurnYear:   0,
 	}
 }
@@ -186,7 +192,12 @@ func (k *Keeper) executeBurn(year int64) *BurnSummary {
 
 	for i, acct := range accounts {
 		bal := acct.Balance
-		burnAmount := CalculateBurnAmount(bal.BigInt().Int64())
+		// A balance outside int64 cannot be burned without truncation. Halt rather than
+		// burn the wrong amount.
+		if !bal.IsInt64() {
+			panic(fmt.Sprintf("burn: balance of %s (%s) does not fit in int64; refusing to truncate", acct.Address, bal))
+		}
+		burnAmount := CalculateBurnAmount(bal.Int64())
 		burnResults[i].address = acct.Address
 		burnResults[i].burnedAmount = burnAmount
 		burnResults[i].balanceBefore = bal
@@ -230,36 +241,45 @@ func (k *Keeper) executeBurn(year int64) *BurnSummary {
 		}
 	}
 
+	// Credit the rounding remainder to the reserve so the burned total is conserved:
+	// humans' new balances plus the reserve equal the amount burned.
+	k.reserveBalance = k.reserveBalance.Add(math.NewInt(remainder))
+
 	// Phase 4: Reset year credits in the issuance module.
 	k.issuanceKeeper.ResetYearCredits()
 
 	// Phase 5: Build and log the burn summary.
 	summary := BurnSummary{
-		YearHeight:        burnHeight,
-		TotalBurned:       totalBurned,
+		YearHeight:         burnHeight,
+		TotalBurned:        totalBurned,
 		TotalRedistributed: totalRedistributed,
-		ActiveHumans:      activeHumans,
-		PerHumanAmount:    perHuman,
-		Remainder:         remainder,
+		ActiveHumans:       activeHumans,
+		PerHumanAmount:     perHuman,
+		Remainder:          remainder,
 	}
 	k.summaries = append(k.summaries, summary)
 
 	// Emit summary event.
 	if k.events != nil {
 		summaryEvent := EventAnnualBurnSummary{
-			YearHeight:        burnHeight,
-			Year:              year,
-			TotalBurned:       totalBurned,
+			YearHeight:         burnHeight,
+			Year:               year,
+			TotalBurned:        totalBurned,
 			TotalRedistributed: totalRedistributed,
-			ActiveHumans:      activeHumans,
-			PerHumanAmount:    perHuman,
-			Remainder:         remainder,
-			ReserveAddress:    k.reserveAddress,
+			ActiveHumans:       activeHumans,
+			PerHumanAmount:     perHuman,
+			Remainder:          remainder,
+			ReserveAddress:     k.reserveAddress,
 		}
 		k.events.EmitAnnualBurnSummary(summaryEvent)
 	}
 
 	return &summary
+}
+
+// ReserveBalance returns the accumulated burn remainder held by the protocol reserve.
+func (k *Keeper) ReserveBalance() math.Int {
+	return k.reserveBalance
 }
 
 // GetBurnRecord returns the burn record for a specific account and year.
