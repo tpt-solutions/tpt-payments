@@ -87,16 +87,23 @@ export default function ApiKeysPage() {
     setKeys(prev => prev.map(k => k.id === id ? { ...k, revoked: true } : k))
   }
 
+  // Key material must come from a CSPRNG, never Math.random.
+  const randomToken = (bytes: number) => {
+    const buf = new Uint8Array(bytes)
+    crypto.getRandomValues(buf)
+    return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("")
+  }
+
   const createKey = async () => {
     setIsCreating(true)
     // API call would go here
     setTimeout(() => {
       const newKey: ApiKey = {
-        id: `key_${Math.random().toString(36).substring(2, 14)}`,
+        id: `key_${randomToken(6)}`,
         name: newKeyName,
-        key: newKeyType === "secret" 
-          ? `sk_${newKeyMode}_${Math.random().toString(36).substring(2, 24)}`
-          : `pk_${newKeyMode}_${Math.random().toString(36).substring(2, 24)}`,
+        key: newKeyType === "secret"
+          ? `sk_${newKeyMode}_${randomToken(24)}`
+          : `pk_${newKeyMode}_${randomToken(24)}`,
         type: newKeyType,
         mode: newKeyMode,
         created: Date.now(),
