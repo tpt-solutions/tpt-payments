@@ -97,10 +97,10 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [~] Update README, testnet compose, faucet, explorer, healthchecks to match reality (no CometBFT / ports 26657, 1317, 9090; metrics on 26660 only). Done: compose serves only 26660 with a working healthcheck; faucet and explorer are labelled as unable to reach the chain; Prometheus targets validator-0:26660; deploy script and onboarding doc corrected. Open: the faucet and explorer need RPC before they work
 - [x] Remove nonexistent subcommands from `scripts/deploy-testnet.sh`, `devnet-reset.sh`; add `--home` / `--overwrite` or fix docs. Done: `init` and `start` accept `--home`, and `init` refuses to replace a genesis without `--overwrite` (tested). Keys and gentx calls were removed; the deploy script requires `FAUCET_MNEMONIC` instead of generating one. Key management is still open
 - [ ] State persistence (currently lost on restart); make `tx` / `query` usable outside `start` process
-- [ ] Fix genesis JSON mismatch (`config/devnet-genesis.json` vs `GenesisDoc`); validate genesis data
-- [ ] Fix invalid bech32 reserve address (`app/app.go:51-53`); validate addresses / UUIDs in keeper
+- [x] Fix genesis JSON mismatch (`config/devnet-genesis.json` vs `GenesisDoc`); validate genesis data. Done: `initial_height` accepts Cosmos's string form (`IntString`); the devnet file uses `consensus_params`; `TestShippedGenesisFilesLoad` parses both shipped files and checks every bank balance address
+- [x] Fix invalid bech32 reserve address (`app/app.go:51-53`); validate addresses / UUIDs in keeper. Done: bech32 checksum verified (BIP-173 vectors); the reserve is now a valid address, derived from a documented seed. Open: validating addresses / UUIDs inside the keeper
 - [ ] Issuance: year reset when burn block is skipped; `NextDueAt` handling; enforce `MaxBalanceUcredit`; invariant should halt, not just print
-- [ ] Burn: credit the remainder to reserve; no silent int64 truncation; deterministic ordering; handle skipped heights
+- [~] Burn: credit the remainder to reserve; no silent int64 truncation; deterministic ordering; handle skipped heights. Done: remainder is credited to a reserve balance so supply is conserved (`TestBeginBlock_RemainderCreditedToReserve`); a balance outside int64 halts the burn instead of wrapping. Open: deterministic ordering, skipped heights
 - [ ] Keeper mutex / races; auth on `SendCredits` / `BatchSend` / `RegisterHuman`
 
 ## 8. SDKs and frontend (functional fixes)
