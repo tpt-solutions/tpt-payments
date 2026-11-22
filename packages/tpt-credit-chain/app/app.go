@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -47,17 +48,37 @@ const (
 	AppVersion = "v0.1.0"
 )
 
-// DefaultReserveAddress is the protocol reserve address for burn remainder.
-// This is a burn address (no known private key) that receives redistribution
-// remainders.
-const DefaultReserveAddress = "cosmos1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqreserve"
+// DefaultReserveAddress is the protocol reserve address for burn remainder. It is the bech32
+// encoding of sha256("tpt-credit/protocol-reserve")[:20], so no one holds its private key. The
+// checksum is verified by TestReserveAddressIsValid.
+const DefaultReserveAddress = "cosmos1nwert8dw9eyfxheva5gvkcmge0stra5mavdmsj"
+
+// IntString is an int64 that Cosmos-style genesis files write as a JSON string ("1"). A bare
+// JSON number is accepted too, so hand-written files work.
+type IntString int64
+
+// MarshalJSON writes the value as a JSON string, matching Cosmos genesis files.
+func (i IntString) MarshalJSON() ([]byte, error) {
+	return json.Marshal(strconv.FormatInt(int64(i), 10))
+}
+
+// UnmarshalJSON accepts a JSON string or number holding a base-10 integer.
+func (i *IntString) UnmarshalJSON(b []byte) error {
+	text := strings.Trim(strings.TrimSpace(string(b)), `"`)
+	n, err := strconv.ParseInt(text, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid integer %s: %w", string(b), err)
+	}
+	*i = IntString(n)
+	return nil
+}
 
 // GenesisDoc is the genesis document format for the TPT Credit chain.
 type GenesisDoc struct {
 	GenesisTime     string          `json:"genesis_time"`
 	ChainID         string          `json:"chain_id"`
 	Moniker         string          `json:"moniker"`
-	InitialHeight   int64           `json:"initial_height"`
+	InitialHeight   IntString       `json:"initial_height"`
 	AppState        json.RawMessage `json:"app_state"`
 	ConsensusParams json.RawMessage `json:"consensus_params,omitempty"`
 }
@@ -182,8 +203,8 @@ type EventBus struct {
 	FrequencyUpdatedEvents   []issuance.FrequencyUpdatedEvent   `json:"frequency_updated_events"`
 	CreditsTransferredEvents []issuance.CreditsTransferredEvent `json:"credits_transferred_events"`
 	BatchSendEvents          []issuance.BatchSendEvent          `json:"batch_send_events"`
-	AnnualBurnEvents         []burn.EventAnnualBurn            `json:"annual_burn_events"`
-	AnnualBurnSummaryEvents  []burn.EventAnnualBurnSummary     `json:"annual_burn_summary_events"`
+	AnnualBurnEvents         []burn.EventAnnualBurn             `json:"annual_burn_events"`
+	AnnualBurnSummaryEvents  []burn.EventAnnualBurnSummary      `json:"annual_burn_summary_events"`
 }
 
 func NewEventBus() *EventBus {
@@ -313,7 +334,7 @@ func NewAppFromGenesis(home string, genesis *GenesisDoc) (*App, error) {
 		return nil, fmt.Errorf("failed to parse app state: %w", err)
 	}
 
-	genesisHeight := genesis.InitialHeight
+	genesisHeight := int64(genesis.InitialHeight)
 	if genesisHeight == 0 {
 		genesisHeight = 1
 	}
@@ -484,13 +505,13 @@ func (app *App) metricsSnapshot() map[string]interface{} {
 		"total_balance":  app.IssuanceKeeper.GetTotalBalance().String(),
 		"accounts":       accountSummaries,
 		"event_count": map[string]int{
-			"human_registered":     len(app.events.HumanRegisteredEvents),
-			"credits_issued":       len(app.events.CreditsIssuedEvents),
-			"frequency_updated":    len(app.events.FrequencyUpdatedEvents),
-			"credits_transferred":  len(app.events.CreditsTransferredEvents),
-			"batch_send":           len(app.events.BatchSendEvents),
-			"annual_burn":          len(app.events.AnnualBurnEvents),
-			"annual_burn_summary":  len(app.events.AnnualBurnSummaryEvents),
+			"human_registered":    len(app.events.HumanRegisteredEvents),
+			"credits_issued":      len(app.events.CreditsIssuedEvents),
+			"frequency_updated":   len(app.events.FrequencyUpdatedEvents),
+			"credits_transferred": len(app.events.CreditsTransferredEvents),
+			"batch_send":          len(app.events.BatchSendEvents),
+			"annual_burn":         len(app.events.AnnualBurnEvents),
+			"annual_burn_summary": len(app.events.AnnualBurnSummaryEvents),
 		},
 	}
 }
@@ -559,13 +580,13 @@ func (app *App) GetStateSnapshot() map[string]interface{} {
 		"total_balance":  app.IssuanceKeeper.GetTotalBalance().String(),
 		"accounts":       accountSummaries,
 		"event_count": map[string]int{
-			"human_registered":     len(app.events.HumanRegisteredEvents),
-			"credits_issued":       len(app.events.CreditsIssuedEvents),
-			"frequency_updated":    len(app.events.FrequencyUpdatedEvents),
-			"credits_transferred":  len(app.events.CreditsTransferredEvents),
-			"batch_send":           len(app.events.BatchSendEvents),
-			"annual_burn":          len(app.events.AnnualBurnEvents),
-			"annual_burn_summary":  len(app.events.AnnualBurnSummaryEvents),
+			"human_registered":    len(app.events.HumanRegisteredEvents),
+			"credits_issued":      len(app.events.CreditsIssuedEvents),
+			"frequency_updated":   len(app.events.FrequencyUpdatedEvents),
+			"credits_transferred": len(app.events.CreditsTransferredEvents),
+			"batch_send":          len(app.events.BatchSendEvents),
+			"annual_burn":         len(app.events.AnnualBurnEvents),
+			"annual_burn_summary": len(app.events.AnnualBurnSummaryEvents),
 		},
 	}
 }
