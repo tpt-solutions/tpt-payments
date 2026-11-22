@@ -21,6 +21,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -71,6 +73,9 @@ Denomination: ucredit (1 credit = 1,000,000 ucredit)
 }
 
 // InitCmd initializes the chain node directory.
+//
+// The home directory is taken from --home, then TPTCREDIT_HOME, then the default. An existing
+// genesis is never replaced unless --overwrite is passed.
 func InitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init <moniker>",
@@ -78,9 +83,15 @@ func InitCmd() *cobra.Command {
 		Long:  `Initialize a home directory for the chain with genesis file, config, and key directories.`,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home := os.Getenv("TPTCREDIT_HOME")
-			if home == "" {
-				home = app.DefaultNodeHome
+			home, err := resolveHome(cmd)
+			if err != nil {
+				return err
+			}
+			overwrite, _ := cmd.Flags().GetBool("overwrite")
+			if !overwrite {
+				if _, err := os.Stat(filepath.Join(home, "config", "genesis.json")); err == nil {
+					return fmt.Errorf("%s is already initialized; pass --overwrite to replace its genesis", home)
+				}
 			}
 
 			chainID, _ := cmd.Flags().GetString("chain-id")
@@ -95,7 +106,29 @@ func InitCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("chain-id", "tpt-credit-devnet-1", "Chain ID for the genesis file")
+	cmd.Flags().String("home", "", "Node home directory (default: $TPTCREDIT_HOME, then "+app.DefaultNodeHome+")")
+	cmd.Flags().Bool("overwrite", false, "Replace an existing genesis file")
 	return cmd
+}
+
+// resolveHome returns the node home directory: --home, then TPTCREDIT_HOME, then the default.
+// A leading ~/ is expanded.
+func resolveHome(cmd *cobra.Command) (string, error) {
+	home, _ := cmd.Flags().GetString("home")
+	if home == "" {
+		home = os.Getenv("TPTCREDIT_HOME")
+	}
+	if home == "" {
+		home = app.DefaultNodeHome
+	}
+	if strings.HasPrefix(home, "~/") {
+		userHome, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot determine home directory: %w", err)
+		}
+		home = filepath.Join(userHome, home[2:])
+	}
+	return home, nil
 }
 
 // StartCmd starts the chain node.
@@ -105,9 +138,9 @@ func StartCmd() *cobra.Command {
 		Short: "Start the chain node",
 		Long:  `Start the TPT Credit chain node with the configured genesis state.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			home := os.Getenv("TPTCREDIT_HOME")
-			if home == "" {
-				home = app.DefaultNodeHome
+			home, err := resolveHome(cmd)
+			if err != nil {
+				return err
 			}
 
 			genesis, err := app.LoadGenesis(home)
@@ -132,5 +165,6 @@ func StartCmd() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().String("home", "", "Node home directory (default: $TPTCREDIT_HOME, then "+app.DefaultNodeHome+")")
 	return cmd
 }
