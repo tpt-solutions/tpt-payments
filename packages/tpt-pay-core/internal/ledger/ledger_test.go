@@ -77,10 +77,10 @@ func TestValidateEntries(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ledger.ValidateEntries(tc.entries)
-			switch {
-			case tc.wantErr == nil:
+			switch tc.wantErr {
+			case nil:
 				require.NoError(t, err)
-			case tc.wantErr == errAny:
+			case errAny:
 				require.Error(t, err)
 			default:
 				require.ErrorIs(t, err, tc.wantErr)
@@ -95,6 +95,6 @@ var errAny = assert.AnError
 func TestEntry_AmountIsNeverFloat(t *testing.T) {
 	// Compile-time check: Entry.Amount is int64, not float64.
 	var e ledger.Entry
-	var _ int64 = e.Amount // this line fails to compile if Amount is float64
+	var _ int64 = e.Amount //nolint:staticcheck // QF1011: explicit type is the point; fails to compile if Amount is float64
 	_ = e
 }

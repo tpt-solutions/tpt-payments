@@ -50,7 +50,7 @@ func Verify(payload []byte, header, secret string, tolerance time.Duration) erro
 		return errors.New("webhook: malformed timestamp")
 	}
 	issued := time.Unix(tsUnix, 0)
-	if issued.Sub(time.Now()) > maxClockSkew {
+	if time.Until(issued) > maxClockSkew {
 		return errors.New("webhook: timestamp is in the future")
 	}
 	if tolerance <= 0 {
