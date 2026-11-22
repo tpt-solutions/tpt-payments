@@ -52,7 +52,7 @@ jobs:
           done
           (cd dist && sha256sum tpt-pay-server-linux-* > checksums.txt)
 
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
