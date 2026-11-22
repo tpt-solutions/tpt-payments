@@ -107,5 +107,6 @@ func KnownEventTypes() []EventType {
 		EventPaymentIntentCanceled,
 		EventPaymentIntentFailed,
 		EventPaymentIntentFraud,
+		EventChargeRefunded,
 	}
 }

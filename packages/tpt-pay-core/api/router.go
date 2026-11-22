@@ -56,25 +56,32 @@ func NewRouter(
 		// publishable keys. Any valid key may retrieve an intent and confirm it, which is
 		// what a browser checkout needs. Data access is always scoped to the key's mode.
 		secret := middleware.RequireSecretKey
+		// Every state-changing route writes an audit row on success.
+		audit := middleware.NewAuditor(pool)
 
 		// Payment intents
 		pi := handlers.NewPaymentIntents(paymentSvc)
-		r.With(secret).Post("/payment_intents", pi.Create)
+		r.With(secret, audit.Record("payment_intent.create", "payment_intent")).Post("/payment_intents", pi.Create)
 		r.Get("/payment_intents/{id}", pi.Retrieve)
-		r.Post("/payment_intents/{id}/confirm", pi.Confirm)
-		r.With(secret).Post("/payment_intents/{id}/capture", pi.Capture)
-		r.With(secret).Post("/payment_intents/{id}/cancel", pi.Cancel)
+		r.With(audit.Record("payment_intent.confirm", "payment_intent")).Post("/payment_intents/{id}/confirm", pi.Confirm)
+		r.With(secret, audit.Record("payment_intent.capture", "payment_intent")).Post("/payment_intents/{id}/capture", pi.Capture)
+		r.With(secret, audit.Record("payment_intent.cancel", "payment_intent")).Post("/payment_intents/{id}/cancel", pi.Cancel)
+
+		// Refunds
+		rf := handlers.NewRefunds(paymentSvc)
+		r.With(secret, audit.Record("refund.create", "refund")).Post("/refunds", rf.Create)
+		r.Get("/refunds/{id}", rf.Retrieve)
 
 		// Webhook endpoints
 		we := handlers.NewWebhookEndpoints(pool, secrets)
-		r.With(secret).Post("/webhook_endpoints", we.Create)
+		r.With(secret, audit.Record("webhook_endpoint.create", "webhook_endpoint")).Post("/webhook_endpoints", we.Create)
 		r.With(secret).Get("/webhook_endpoints/{id}", we.Retrieve)
-		r.With(secret).Delete("/webhook_endpoints/{id}", we.Delete)
+		r.With(secret, audit.Record("webhook_endpoint.delete", "webhook_endpoint")).Delete("/webhook_endpoints/{id}", we.Delete)
 
 		// API keys
 		ak := handlers.NewAPIKeys(apiKeySvc)
-		r.With(secret).Post("/api_keys", ak.Create)
-		r.With(secret).Delete("/api_keys/{id}", ak.Revoke)
+		r.With(secret, audit.Record("api_key.create", "api_key")).Post("/api_keys", ak.Create)
+		r.With(secret, audit.Record("api_key.revoke", "api_key")).Delete("/api_keys/{id}", ak.Revoke)
 	})
 
 	return r

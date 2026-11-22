@@ -30,6 +30,8 @@ const (
 	EventPaymentIntentCanceled  EventType = "payment_intent.canceled"
 	EventPaymentIntentFailed    EventType = "payment_intent.payment_failed"
 	EventPaymentIntentFraud     EventType = "payment_intent.fraud_flagged"
+	// EventChargeRefunded uses Stripe's name so existing receivers work unchanged.
+	EventChargeRefunded EventType = "charge.refunded"
 )
 
 // Event is the webhook event envelope — matches Stripe's event object shape.

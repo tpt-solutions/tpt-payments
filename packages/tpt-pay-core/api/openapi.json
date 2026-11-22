@@ -205,6 +205,60 @@
             "description": "Returned once, at creation only."
           }
         }
+      },
+      "Refund": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "refund"
+            ]
+          },
+          "amount": {
+            "type": "integer",
+            "description": "Minor currency units."
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD"
+          },
+          "payment_intent": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "succeeded",
+              "failed"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "duplicate",
+              "fraudulent",
+              "requested_by_customer"
+            ]
+          },
+          "created": {
+            "type": "integer",
+            "description": "Unix seconds."
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "ledger_transaction_id": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        }
       }
     },
     "responses": {
@@ -477,6 +531,100 @@
             }
           },
           "400": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/refunds": {
+      "post": {
+        "summary": "Refund a payment",
+        "description": "Requires a secret key and a succeeded payment intent. Omit amount to refund the remaining refundable balance. A refund reserves its amount while pending, so refunds cannot exceed what was captured.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "payment_intent"
+                ],
+                "properties": {
+                  "payment_intent": {
+                    "type": "string",
+                    "description": "ID of the payment intent to refund."
+                  },
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Amount in minor units. Defaults to the remaining refundable balance."
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "duplicate",
+                      "fraudulent",
+                      "requested_by_customer"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The refund. A definitive network decline is returned here with status failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refund"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/refunds/{id}": {
+      "get": {
+        "summary": "Retrieve a refund",
+        "description": "Any valid key. Only refunds in the key's mode and merchant are visible.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Refund"
+                }
+              }
+            }
+          },
+          "404": {
             "$ref": "#/components/responses/Error"
           }
         }
