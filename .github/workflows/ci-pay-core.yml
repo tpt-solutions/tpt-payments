@@ -9,10 +9,6 @@ on:
       - "go.work"
       - ".github/workflows/ci-pay-core.yml"
   pull_request:
-    paths:
-      - "packages/tpt-pay-core/**"
-      - "go.work"
-      - ".github/workflows/ci-pay-core.yml"
 
 jobs:
   lint:
@@ -96,3 +92,19 @@ jobs:
           cache: true
       - name: Build server binary
         run: go build -o /dev/null ./packages/tpt-pay-core/cmd/server
+
+  # Always-run gate. Branch protection should require this one check: it reports even when a
+  # path filter skipped the other jobs, and it fails if any job did not succeed.
+  required:
+    name: Required checks
+    if: always()
+    needs: [lint, unit-test, integration-test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every job succeeded
+        run: |
+          [ "${{ needs.lint.result }}" = "success" ] || { echo "lint did not succeed"; exit 1; }
+          [ "${{ needs.unit-test.result }}" = "success" ] || { echo "unit-test did not succeed"; exit 1; }
+          [ "${{ needs.integration-test.result }}" = "success" ] || { echo "integration-test did not succeed"; exit 1; }
+          [ "${{ needs.build.result }}" = "success" ] || { echo "build did not succeed"; exit 1; }
+          echo "all required checks passed"

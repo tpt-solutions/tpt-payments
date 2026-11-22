@@ -2,7 +2,7 @@ FROM golang:1.27-alpine AS base
 RUN apk add --no-cache git ca-certificates
 
 # Install Air for hot reload
-RUN go install github.com/air-verse/air@latest
+RUN go install github.com/air-verse/air@v1.67.3
 
 WORKDIR /app
 COPY go.mod go.sum* ./

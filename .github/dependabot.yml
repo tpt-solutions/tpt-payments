@@ -33,6 +33,13 @@ updates:
         update-types: ["minor", "patch"]
 
   - package-ecosystem: "npm"
+    directory: "/deploy/testnet/faucet"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "javascript", "faucet"]
+
+  - package-ecosystem: "npm"
     directory: "/packages/tpt-pay"
     schedule:
       interval: "weekly"

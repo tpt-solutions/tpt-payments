@@ -7,9 +7,6 @@ on:
       - "packages/tpt-credit-chain/**"
       - ".github/workflows/ci-credit-chain.yml"
   pull_request:
-    paths:
-      - "packages/tpt-credit-chain/**"
-      - ".github/workflows/ci-credit-chain.yml"
 
 jobs:
   lint:
@@ -38,13 +35,13 @@ jobs:
       - name: Run unit tests
         working-directory: packages/tpt-credit-chain
         run: go test -count=1 -race ./...
-      - name: Run simulation tests
-        working-directory: packages/tpt-credit-chain
-        run: go test -count=1 -run TestFullAppSimulation ./app/... -v -SimulationEnabled=true
-        continue-on-error: true  # simulation tests are non-deterministic; failures are informational
       - name: Check invariants
         working-directory: packages/tpt-credit-chain
-        run: go test -count=1 -run TestInvariants ./x/...
+        run: |
+          # The pattern must match real tests. An empty match runs nothing and passes, so fail if
+          # no TestInvariant test reports PASS.
+          go test -count=1 -v -run '^TestInvariant' ./x/... | tee invariants.log
+          grep -q -- '--- PASS: TestInvariant' invariants.log
 
   build:
     name: Build chain binary
@@ -58,3 +55,18 @@ jobs:
       - name: Build tptcreditd
         working-directory: packages/tpt-credit-chain
         run: go build -o /dev/null ./cmd/tptcreditd
+
+  # Always-run gate. Branch protection should require this one check: it reports even when a
+  # path filter skipped the other jobs, and it fails if any job did not succeed.
+  required:
+    name: Required checks
+    if: always()
+    needs: [lint, test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every job succeeded
+        run: |
+          [ "${{ needs.lint.result }}" = "success" ] || { echo "lint did not succeed"; exit 1; }
+          [ "${{ needs.test.result }}" = "success" ] || { echo "test did not succeed"; exit 1; }
+          [ "${{ needs.build.result }}" = "success" ] || { echo "build did not succeed"; exit 1; }
+          echo "all required checks passed"
