@@ -17,8 +17,10 @@ import (
 // openapi.json, so the published contract cannot drift from what is served.
 func TestOpenAPIMatchesRouter(t *testing.T) {
 	router := NewRouter(nil, nil, nil, nil, prometheus.NewRegistry())
+	chiRoutes, ok := router.(chi.Routes)
+	require.True(t, ok, "router must be a chi router")
 	routes := map[string]bool{}
-	require.NoError(t, chi.Walk(router.(chi.Routes), func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+	require.NoError(t, chi.Walk(chiRoutes, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		route = strings.TrimSuffix(route, "/")
 		// Paths under /v1 are relative to the spec's /v1 server.
 		route = strings.TrimPrefix(route, "/v1")

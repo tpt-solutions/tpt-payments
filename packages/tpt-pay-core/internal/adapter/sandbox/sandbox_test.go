@@ -44,8 +44,8 @@ func TestSandbox_Authorize_Success(t *testing.T) {
 
 func TestSandbox_Authorize_Decline(t *testing.T) {
 	tests := []struct {
-		name    string
-		pmID    string
+		name     string
+		pmID     string
 		wantCode string
 	}{
 		{"generic decline", sandbox.CardDecline, "card_declined"},

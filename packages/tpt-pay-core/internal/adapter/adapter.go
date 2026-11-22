@@ -25,16 +25,16 @@ type AuthRequest struct {
 
 // AuthResponse is returned by a successful authorization.
 type AuthResponse struct {
-	ChargeID      string    // adapter-level charge identifier
-	AuthCode      string    // authorization code from card network
-	NetworkTxnID  string    // card network transaction ID (for recurring use)
-	AuthorizedAt  time.Time
+	ChargeID     string // adapter-level charge identifier
+	AuthCode     string // authorization code from card network
+	NetworkTxnID string // card network transaction ID (for recurring use)
+	AuthorizedAt time.Time
 }
 
 // CaptureRequest finalizes a previously authorized charge.
 type CaptureRequest struct {
 	ChargeID string
-	Amount   int64  // may be <= the originally authorized amount
+	Amount   int64 // may be <= the originally authorized amount
 }
 
 // CaptureResponse is returned by a successful capture.

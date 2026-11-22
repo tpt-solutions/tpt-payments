@@ -17,12 +17,12 @@ import (
 // Test card numbers that trigger specific behaviours.
 // Any card number not listed here succeeds.
 const (
-	CardDecline             = "4000000000000002"
-	CardInsufficientFunds   = "4000000000009995"
-	CardExpired             = "4000000000000069"
-	CardCVCFail             = "4000000000000101"
-	CardAuthRequired        = "4000002500003155"
-	CardNetworkError        = "4000000000000119" // triggers a generic network error
+	CardDecline           = "4000000000000002"
+	CardInsufficientFunds = "4000000000009995"
+	CardExpired           = "4000000000000069"
+	CardCVCFail           = "4000000000000101"
+	CardAuthRequired      = "4000002500003155"
+	CardNetworkError      = "4000000000000119" // triggers a generic network error
 )
 
 // Config controls sandbox behaviour.
@@ -40,19 +40,19 @@ type Config struct {
 type Sandbox struct {
 	cfg Config
 
-	mu       sync.RWMutex
-	charges  map[string]*charge  // chargeID → state
-	tokens   map[string]*token   // paymentMethodID → card info
+	mu      sync.RWMutex
+	charges map[string]*charge // chargeID → state
+	tokens  map[string]*token  // paymentMethodID → card info
 }
 
 type charge struct {
-	id         string
-	amount     int64
-	currency   string
-	authCode   string
-	captured   bool
-	voided     bool
-	refunds    []int64 // list of refund amounts
+	id       string
+	amount   int64
+	currency string
+	authCode string
+	captured bool
+	voided   bool
+	refunds  []int64 // list of refund amounts
 }
 
 type token struct {

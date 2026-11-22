@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
@@ -9,10 +10,7 @@ import (
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
 	var apiErr *apierrors.APIError
-	switch e := err.(type) {
-	case *apierrors.APIError:
-		apiErr = e
-	default:
+	if !errors.As(err, &apiErr) {
 		apiErr = apierrors.Internal("An unexpected error occurred.")
 	}
 
