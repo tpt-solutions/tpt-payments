@@ -1,6 +1,6 @@
-.PHONY: dev test build lint migrate migration fmt vet clean help
+.PHONY: dev quickstart test build lint migrate migration fmt vet clean help
 
-SHELL := /bin/bash
+# No SHELL override: targets must work where /bin/bash is absent (todo §4).
 ROOT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 MIGRATION_DIR := packages/tpt-pay-core/migrations
 
@@ -12,6 +12,10 @@ help:
 ## dev: start full local development stack via Docker Compose
 dev:
 	docker compose up --build
+
+## quickstart: start the local stack, create a sandbox merchant, and print a first payment (cross-platform, needs Docker)
+quickstart:
+	go run ./packages/tpt-pay-core/cmd/quickstart
 
 ## dev-down: stop local development stack
 dev-down:
