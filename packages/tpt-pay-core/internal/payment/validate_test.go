@@ -27,10 +27,18 @@ func TestMinorUnitScale(t *testing.T) {
 
 func TestValidateAmount(t *testing.T) {
 	assert.NoError(t, ValidateAmount(1, "USD"))
-	assert.NoError(t, ValidateAmount(MaxAmount, "USD"))
+	assert.NoError(t, ValidateAmount(MaxAmountFor("USD"), "USD"))
 	assert.Error(t, ValidateAmount(0, "USD"))
 	assert.Error(t, ValidateAmount(-5, "USD"))
-	assert.Error(t, ValidateAmount(MaxAmount+1, "USD"))
+	assert.Error(t, ValidateAmount(MaxAmountFor("USD")+1, "USD"))
+}
+
+func TestMaxAmountIsPerCurrencyScale(t *testing.T) {
+	assert.Equal(t, int64(1_000_000_000), MaxAmountFor("USD"), "10,000,000.00 USD in cents")
+	assert.Equal(t, int64(10_000_000), MaxAmountFor("JPY"), "10,000,000 JPY has no minor unit")
+	assert.Error(t, ValidateAmount(MaxAmountFor("JPY")+1, "JPY"))
+	assert.Error(t, ValidateAmount(MaxAmountFor("USD")+1, "JPY"),
+		"a USD-sized amount in yen is 100x the yen ceiling and must be refused")
 }
 
 func TestValidateMetadata(t *testing.T) {

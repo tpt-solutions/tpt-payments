@@ -18,6 +18,13 @@ type Config struct {
 	Adapter  AdapterConfig
 	App      AppConfig
 	Webhook  WebhookConfig
+	Ledger   LedgerConfig
+}
+
+// LedgerConfig controls the scheduled ledger integrity check.
+type LedgerConfig struct {
+	// IntegrityInterval is how often every transaction is re-checked for balance.
+	IntegrityInterval time.Duration
 }
 
 type ServerConfig struct {
@@ -116,6 +123,13 @@ func Load() (*Config, error) {
 	cfg.App = AppConfig{
 		Env:      getEnv("APP_ENV", "development"),
 		LogLevel: getEnv("LOG_LEVEL", "info"),
+	}
+
+	cfg.Ledger = LedgerConfig{
+		IntegrityInterval: p.duration("LEDGER_INTEGRITY_INTERVAL", "1h"),
+	}
+	if cfg.Ledger.IntegrityInterval <= 0 {
+		errs = append(errs, errors.New("LEDGER_INTEGRITY_INTERVAL must be positive"))
 	}
 
 	cfg.Webhook = WebhookConfig{

@@ -195,20 +195,85 @@ func (l *Ledger) PostTransactionTx(ctx context.Context, tx pgx.Tx, txnType Trans
 	return &txn, true, nil
 }
 
-// Balance returns the current balance (in smallest currency unit) for an account.
+// AccountBalance is the balance of one account, in its currency's smallest unit.
 // A positive balance means the merchant is owed money; negative means they owe.
-func (l *Ledger) Balance(ctx context.Context, accountID uuid.UUID) (int64, string, error) {
-	var balance int64
-	var currency string
+type AccountBalance struct {
+	AccountID uuid.UUID
+	Currency  string
+	Amount    int64
+}
+
+// Balance returns the current balance of an account. The currency is the account's own
+// currency, so the amount is never a sum across currencies.
+func (l *Ledger) Balance(ctx context.Context, accountID uuid.UUID) (AccountBalance, error) {
+	var b AccountBalance
+	b.AccountID = accountID
 	err := l.pool.QueryRow(ctx, `
-		SELECT COALESCE(SUM(amount), 0), MAX(currency)
-		FROM ledger_entries
-		WHERE account_id = $1
-	`, accountID).Scan(&balance, &currency)
-	if err != nil {
-		return 0, "", fmt.Errorf("query balance: %w", err)
+		SELECT a.currency, COALESCE(SUM(le.amount), 0)
+		FROM accounts a
+		LEFT JOIN ledger_entries le ON le.account_id = a.id
+		WHERE a.id = $1
+		GROUP BY a.currency
+	`, accountID).Scan(&b.Currency, &b.Amount)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AccountBalance{}, fmt.Errorf("account %s not found", accountID)
 	}
-	return balance, currency, nil
+	if err != nil {
+		return AccountBalance{}, fmt.Errorf("query balance: %w", err)
+	}
+	return b, nil
+}
+
+// MerchantBalances returns one balance per currency for a merchant's accounts, ordered by
+// currency. A merchant with no accounts gets an empty slice.
+func (l *Ledger) MerchantBalances(ctx context.Context, merchantID uuid.UUID) ([]AccountBalance, error) {
+	rows, err := l.pool.Query(ctx, `
+		SELECT a.id, a.currency, COALESCE(SUM(le.amount), 0)
+		FROM accounts a
+		LEFT JOIN ledger_entries le ON le.account_id = a.id
+		WHERE a.merchant_id = $1
+		GROUP BY a.id, a.currency
+		ORDER BY a.currency
+	`, merchantID)
+	if err != nil {
+		return nil, fmt.Errorf("query merchant balances: %w", err)
+	}
+	defer rows.Close()
+
+	out := []AccountBalance{}
+	for rows.Next() {
+		var b AccountBalance
+		if err := rows.Scan(&b.AccountID, &b.Currency, &b.Amount); err != nil {
+			return nil, fmt.Errorf("scan balance: %w", err)
+		}
+		out = append(out, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read balances: %w", err)
+	}
+	return out, nil
+}
+
+// IntegrityCheck is called with the result of each scheduled integrity run. unbalanced is
+// the number of unbalanced transactions (0 when healthy); err is set if the check itself
+// could not run.
+type IntegrityCheck func(unbalanced int, err error)
+
+// RunIntegrityJob runs VerifyIntegrity every interval until ctx is cancelled. It reports each
+// result to report, so a non-zero count can alert. The database trigger already blocks new
+// unbalanced transactions; this job catches anything written around it.
+func (l *Ledger) RunIntegrityJob(ctx context.Context, interval time.Duration, report IntegrityCheck) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			n, err := l.VerifyIntegrity(ctx)
+			report(n, err)
+		}
+	}
 }
 
 // VerifyIntegrity checks that every transaction in the ledger is balanced.

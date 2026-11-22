@@ -1,6 +1,7 @@
 package ledger_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -77,10 +78,10 @@ func TestValidateEntries(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := ledger.ValidateEntries(tc.entries)
-			switch tc.wantErr {
-			case nil:
+			switch {
+			case tc.wantErr == nil:
 				require.NoError(t, err)
-			case errAny:
+			case errors.Is(tc.wantErr, errAny):
 				require.Error(t, err)
 			default:
 				require.ErrorIs(t, err, tc.wantErr)

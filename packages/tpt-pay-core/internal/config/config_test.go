@@ -62,3 +62,15 @@ func TestValidateProduction_AllowsDevelopmentEnvironment(t *testing.T) {
 	}
 	assert.NoError(t, ValidateProduction(cfg))
 }
+
+func TestLoad_LedgerIntegrityIntervalDefaultsAndValidates(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, "1h0m0s", cfg.Ledger.IntegrityInterval.String())
+
+	t.Setenv("LEDGER_INTEGRITY_INTERVAL", "0s")
+	_, err = Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "LEDGER_INTEGRITY_INTERVAL")
+}

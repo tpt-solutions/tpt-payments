@@ -84,6 +84,18 @@ func run() error {
 
 	paymentSvc := payment.NewService(pool, adpt, lgr)
 
+	// Re-verify every ledger transaction on a schedule. A non-zero count is an incident.
+	go lgr.RunIntegrityJob(ctx, cfg.Ledger.IntegrityInterval, func(unbalanced int, err error) {
+		switch {
+		case err != nil:
+			slog.Error("ledger integrity check could not run", "err", err)
+		case unbalanced > 0:
+			slog.Error("LEDGER INTEGRITY FAILURE: unbalanced transactions found", "count", unbalanced)
+		default:
+			slog.Debug("ledger integrity check passed")
+		}
+	})
+
 	// Idempotency records expire after 24 hours; purge them hourly.
 	middleware.StartIdempotencyCleanup(ctx, pool, time.Hour, 24*time.Hour)
 

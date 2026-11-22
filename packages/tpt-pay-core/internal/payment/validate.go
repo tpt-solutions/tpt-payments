@@ -8,9 +8,20 @@ import (
 	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
 )
 
-// MaxAmount is the largest amount accepted, in minor units. It is a guard against
-// fat-fingered values and integer misuse, not a card-network limit.
-const MaxAmount int64 = 1_000_000_000
+// MaxAmountMajor is the largest amount accepted, in major currency units (10,000,000 USD,
+// or 10,000,000 JPY). It is a guard against fat-fingered values and integer misuse, not a
+// card-network limit. It is applied per currency, so a zero-decimal currency does not get a
+// 100x larger ceiling than a two-decimal one.
+const MaxAmountMajor int64 = 10_000_000
+
+// MaxAmountFor returns the largest amount, in minor units, accepted for a currency.
+func MaxAmountFor(code string) int64 {
+	max := MaxAmountMajor
+	for i := 0; i < MinorUnitScale(code); i++ {
+		max *= 10
+	}
+	return max
+}
 
 const (
 	maxMetadataKeys     = 50
@@ -35,7 +46,7 @@ func ValidateAmount(amount int64, currencyCode string) error {
 	if amount <= 0 {
 		return apierrors.InvalidParam("amount", "amount must be greater than zero")
 	}
-	if amount > MaxAmount {
+	if amount > MaxAmountFor(currencyCode) {
 		return apierrors.InvalidParam("amount", "amount exceeds the maximum allowed")
 	}
 	return nil
