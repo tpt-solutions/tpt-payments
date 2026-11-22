@@ -76,12 +76,12 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 
 ## 5. Automation / CI/CD
 - [ ] CI for `frontend/`, both SDKs, Helm (`helm lint`), compose config, OpenAPI validation, examples; coverage reporting
-- [ ] Always-run "required" gate job (path-filtered workflows can leave required checks stuck)
-- [ ] `security.yml`: fix audited paths; add CodeQL, gitleaks, Trivy; pin govulncheck; remove `continue-on-error` on chain govulncheck
-- [ ] Dependabot: npm (frontend, packages/tpt-pay, faucet), pip, docker, `/backend` (or archive), `/chain`, `/tools`; grouping + PR limits
-- [~] Pin `arigaio/atlas:latest`, Helm `image.tag: latest`, other floating tags. Done: Helm tag now defaults to appVersion. Open: Atlas pin (CLI not installed here, so no verified version), other floating tags
+- [~] Always-run "required" gate job (path-filtered workflows can leave required checks stuck). Done in `ci-pay-core` and `ci-credit-chain`: pull-request path filters removed, and a `required` job with `if: always()` fails unless every job succeeded. Open: release, compatibility and security workflows, and making `required` the branch-protection check
+- [~] `security.yml`: fix audited paths; add CodeQL, gitleaks, Trivy; pin govulncheck; remove `continue-on-error` on chain govulncheck. Done: paths checked; CodeQL added for Go and JS/TS (actions pinned to v4.39.4); govulncheck pinned. Open: gitleaks (the action needs a license for organisation accounts), Trivy, and npm audit, which fails for `frontend/` because it has no lockfile
+- [x] Dependabot: npm (frontend, packages/tpt-pay, faucet), pip, docker, `/backend` (or archive), `/chain`, `/tools`; grouping + PR limits. Done: faucet added; `backend/` is archived and `tools/` no longer exists, so neither is listed
+- [~] Pin `arigaio/atlas:latest`, Helm `image.tag: latest`, other floating tags. Done: Helm tag defaults to appVersion; `air` in `Dockerfile.dev` pinned to v1.67.3. Open: Atlas pin (CLI not installed here)
 - [ ] Release: release-please / conventional commits, GHCR push, cosign, SBOM, SLSA provenance, SDK + Helm publish, `-race`, fix `git describe` on first tag
-- [ ] Fix `ci-credit-chain.yml` simulation step (no tests exist, `continue-on-error`)
+- [x] Fix `ci-credit-chain.yml` simulation step (no tests exist, `continue-on-error`). Done: the step is removed, and the invariant check fails if no `TestInvariant` test passes (the old pattern matched nothing and passed)
 - [ ] Stale / labeler / PR size bots; markdown lint
 
 ## 6. Security (outside core)
