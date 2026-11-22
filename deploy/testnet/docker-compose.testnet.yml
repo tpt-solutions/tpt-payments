@@ -1,5 +1,10 @@
 # Docker Compose for TPT Credit chain testnet infrastructure.
 # Includes: chain node, faucet API, Ping.pub explorer, Prometheus, Grafana.
+#
+# STATUS: the chain is a simulator. It serves Prometheus metrics on 26660 and nothing else.
+# RPC (26657), REST (1317), gRPC (9090) and P2P (26656) are not implemented, so the faucet and
+# explorer below cannot reach the chain yet (todo §7). Their settings are kept so they work
+# once those endpoints exist.
 # Usage: docker compose -f deploy/testnet/docker-compose.testnet.yml up -d
 x-chain-config: &chain-config
   image: tpt-credit-chain:latest
@@ -20,14 +25,11 @@ services:
       TPTCREDIT_HOME: /root/.tptcredit
       MONIKER: tpt-validator-0
     ports:
-      - "26656:26656"   # P2P
-      - "26657:26657"   # RPC
-      - "1317:1317"     # API
-      - "9090:9090"     # gRPC
-      - "26660:26660"   # Metrics
+      # Planned, not served yet: 26656 (P2P), 26657 (RPC), 1317 (REST), 9090 (gRPC).
+      - "26660:26660"   # Prometheus metrics (the only endpoint the simulator serves)
     command: ["tptcreditd", "start"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
+      test: ["CMD", "curl", "-f", "http://localhost:26660/metrics"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -80,6 +82,7 @@ services:
     container_name: tpt-testnet-faucet
     restart: unless-stopped
     environment:
+      # Not served by the simulator yet (todo §7): the faucet cannot send funds until RPC exists.
       CHAIN_RPC_URL: http://validator-0:26657
       CHAIN_API_URL: http://validator-0:1317
       FAUCET_MNEMONIC: "${FAUCET_MNEMONIC}"
@@ -100,6 +103,7 @@ services:
     environment:
       NEXT_PUBLIC_CHAIN_NAME: "TPT Credit Testnet"
       NEXT_PUBLIC_CHAIN_ID: "tpt-credit-testnet-1"
+      # Not served by the simulator yet (todo §7): the explorer shows no chain data until RPC exists.
       NEXT_PUBLIC_RPC: "http://validator-0:26657"
       NEXT_PUBLIC_LCD: "http://validator-0:1317"
       NEXT_PUBLIC_STAKING_DENOM: "ucredit"

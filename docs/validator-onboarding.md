@@ -8,7 +8,7 @@ The testnet uses Proof-of-Authority (PoA) consensus with a maximum of 7 validato
 - Linux server (Ubuntu 22.04+ or Debian 12+ recommended)
 - Go 1.23+ installed
 - Minimum 4 CPU cores, 8 GB RAM, 100 GB SSD
-- Ports 26656 (P2P) and 26660 (metrics) open
+- Port 26660 (metrics) open. The simulator does not serve P2P yet (26656), so there is nothing to peer with yet (todo §7)
 
 ## Step 1: Build the Chain Binary
 
@@ -123,11 +123,11 @@ Metrics endpoint: http://localhost:26660/metrics
 ## Step 8: Verify Node Status
 
 ```bash
-# Check node status via RPC.
-curl http://localhost:26657/status
+# Check node status (metrics endpoint).
+curl http://localhost:26660/metrics   # the simulator's only endpoint; RPC /status is planned
 
 # Check validator signing.
-curl http://localhost:26657/validators
+# planned: curl http://localhost:26657/validators (RPC is not served by the simulator yet)
 
 # View metrics.
 curl http://localhost:26660/metrics
@@ -161,7 +161,7 @@ docker run -d --name node-exporter \
 
 ## Security Checklist
 
-- [ ] Firewall: only ports 26656 and 26660 (metrics) exposed
+- [ ] Firewall: only port 26660 (metrics) exposed until P2P exists
 - [ ] SSH: key-based authentication only, fail2ban enabled
 - [ ] System: automatic security updates enabled
 - [ ] Monitoring: node exporter running, alerts configured
@@ -181,7 +181,7 @@ docker run -d --name node-exporter \
 tptcreditd query bank balances <validator-address>
 
 # Check recent blocks.
-curl http://localhost:26657/block?height=<height>
+# planned: curl http://localhost:26657/block?height=<height> (RPC is not served by the simulator yet)
 
 # Pause signing (if needed).
 tptcreditd tx staking unbond <validator-address> 1000000ucredit \
