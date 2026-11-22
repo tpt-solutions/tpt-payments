@@ -28,40 +28,29 @@ cd "$CHAIN_DIR"
 go build -o "$CHAIN_DIR/bin/tptcreditd" ./cmd/tptcreditd
 echo -e "${GREEN}  ✓ Built tptcreditd${NC}"
 
-# Step 2: Generate validator key and gentx.
-echo -e "${YELLOW}[2/6] Generating validator keys...${NC}"
+# Step 2: Prepare the node home. `init` writes the genesis file; --overwrite replaces the
+# home from the previous run.
+echo -e "${YELLOW}[2/6] Preparing node home...${NC}"
 HOME_DIR="/tmp/.tptcredit-testnet"
 rm -rf "$HOME_DIR"
 
-"$CHAIN_DIR/bin/tptcreditd" init testnet-validator --chain-id "tpt-credit-testnet-1" --home "$HOME_DIR" 2>/dev/null
+"$CHAIN_DIR/bin/tptcreditd" init testnet-validator --chain-id "tpt-credit-testnet-1" --home "$HOME_DIR" --overwrite
 
 # Copy testnet genesis.
 cp "$CONFIG_DIR/testnet-genesis.json" "$HOME_DIR/config/genesis.json"
-
-# Generate validator key.
-VALIDATOR_MNEMONIC=$("$CHAIN_DIR/bin/tptcreditd" keys add validator \
-  --keyring-backend test --home "$HOME_DIR" --output json 2>&1 | tee /tmp/validator-key.json | jq -r '.mnemonic' 2>/dev/null || true)
-
-VALIDATOR_ADDR=$("$CHAIN_DIR/bin/tptcreditd" keys show validator -a --keyring-backend test --home "$HOME_DIR" 2>/dev/null || echo "unknown")
-
-echo -e "${GREEN}  ✓ Validator address: $VALIDATOR_ADDR${NC}"
-echo -e "${YELLOW}  ⚠ Save this mnemonic:${NC}"
+echo -e "${GREEN}  ✓ Node home prepared at $HOME_DIR${NC}"
 echo ""
-echo "  $VALIDATOR_MNEMONIC"
-echo ""
-echo -e "${YELLOW}  Save to FAUCET_MNEMONIC env var for faucet.${NC}"
 
-# Step 3: Generate faucet key.
-echo -e "${YELLOW}[3/6] Generating faucet key...${NC}"
-FAUCET_MNEMONIC=$("$CHAIN_DIR/bin/tptcreditd" keys add faucet \
-  --keyring-backend test --home "$HOME_DIR" --output json 2>&1 | tee /tmp/faucet-key.json | jq -r '.mnemonic' 2>/dev/null || true)
-
-FAUCET_ADDR=$("$CHAIN_DIR/bin/tptcreditd" keys show faucet -a --keyring-backend test --home "$HOME_DIR" 2>/dev/null || echo "unknown")
-
-echo -e "${GREEN}  ✓ Faucet address: $FAUCET_ADDR${NC}"
-echo ""
-echo -e "${YELLOW}  Faucet mnemonic (set as FAUCET_MNEMONIC):${NC}"
-echo "  $FAUCET_MNEMONIC"
+# Step 3: The faucet account. The chain CLI cannot create keys yet (todo §7: key management is
+# not implemented), so the mnemonic must be supplied from outside and never generated here.
+echo -e "${YELLOW}[3/6] Checking faucet mnemonic...${NC}"
+if [ -z "${FAUCET_MNEMONIC:-}" ]; then
+  echo -e "${RED}  ✗ FAUCET_MNEMONIC is not set. The faucet cannot start without it.${NC}" >&2
+  echo "    Create the faucet account with an external wallet tool and export its mnemonic:" >&2
+  echo "      export FAUCET_MNEMONIC=\"word1 word2 ... word24\"" >&2
+  exit 1
+fi
+echo -e "${GREEN}  ✓ FAUCET_MNEMONIC is set${NC}"
 echo ""
 
 # Step 4: Copy config files.
@@ -92,8 +81,7 @@ echo -e "${GREEN}  TPT Credit Testnet is Running!        ${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "  Chain ID:      ${YELLOW}tpt-credit-testnet-1${NC}"
-echo -e "  Validator:      ${YELLOW}$VALIDATOR_ADDR${NC}"
-echo -e "  Faucet:        ${YELLOW}$FAUCET_ADDR${NC}"
+echo -e "  Validator:     ${YELLOW}not generated (chain CLI has no key management yet)${NC}"
 echo ""
 echo -e "  Services:"
 echo -e "    Faucet:      ${YELLOW}http://localhost:3002${NC}"

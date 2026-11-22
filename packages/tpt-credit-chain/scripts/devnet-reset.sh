@@ -23,17 +23,9 @@ echo "==> Copying app.toml + config.toml..."
 cp config/app.toml    "$HOME_DIR/config/app.toml"
 cp config/config.toml "$HOME_DIR/config/config.toml"
 
-echo "==> Adding dev validator key..."
-"$BINARY" keys add validator --keyring-backend test --home "$HOME_DIR" --output json 2>&1 | tee /tmp/validator-key.json
-
-echo "==> Adding validator to genesis..."
-VALIDATOR_ADDR=$("$BINARY" keys show validator -a --keyring-backend test --home "$HOME_DIR")
-"$BINARY" genesis add-genesis-account "$VALIDATOR_ADDR" 1000000ucredit \
-    --keyring-backend test --home "$HOME_DIR"
-"$BINARY" genesis gentx validator 500000ucredit \
-    --chain-id "$CHAIN_ID" --keyring-backend test --home "$HOME_DIR"
-"$BINARY" genesis collect-gentxs --home "$HOME_DIR"
+# The chain CLI has no key management or gentx support yet (todo §7), so this devnet has no
+# validator keys. The simulator does not need them to run.
 
 echo ""
-echo "==> Devnet initialized. Run to start:"
+echo "==> Devnet initialized (no validator keys: key management is not implemented yet). Run to start:"
 echo "    $BINARY start --home $HOME_DIR"
