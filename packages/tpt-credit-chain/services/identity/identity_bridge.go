@@ -29,6 +29,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -41,10 +42,10 @@ import (
 type KYCProvider string
 
 const (
-	ProviderForge     KYCProvider = "forgetpass"
-	ProviderOnfido    KYCProvider = "onfido"
-	ProviderJumio     KYCProvider = "jumio"
-	ProviderPersona    KYCProvider = "persona"
+	ProviderForge   KYCProvider = "forgetpass"
+	ProviderOnfido  KYCProvider = "onfido"
+	ProviderJumio   KYCProvider = "jumio"
+	ProviderPersona KYCProvider = "persona"
 	ProviderCustom  KYCProvider = "custom"
 )
 
@@ -128,7 +129,14 @@ type BridgeClient struct {
 	dailyCount     int
 	currentDay     int
 	attestationLog []AttestationResult
+	// usedJTI records attestation IDs already accepted, until their expiry, so a captured
+	// token cannot be replayed.
+	usedJTI map[string]time.Time
 }
+
+// ErrNoJWTSecret is returned when attestations are processed without a configured secret.
+// The bridge never falls back to a default key: an unconfigured bridge accepts nothing.
+var ErrNoJWTSecret = errors.New("identity bridge has no JWT secret configured; attestations are refused")
 
 // NewBridgeClient creates a new identity bridge client.
 func NewBridgeClient(config BridgeConfig) *BridgeClient {
@@ -137,6 +145,7 @@ func NewBridgeClient(config BridgeConfig) *BridgeClient {
 		dailyCount:     0,
 		currentDay:     time.Now().YearDay(),
 		attestationLog: make([]AttestationResult, 0),
+		usedJTI:        make(map[string]time.Time),
 	}
 }
 
@@ -157,17 +166,16 @@ func (bc *BridgeClient) ProcessAttestation(jwtToken string) (*AttestationResult,
 	}
 
 	// Parse the JWT token.
+	if bc.config.JWTSecret == "" {
+		return nil, ErrNoJWTSecret
+	}
 	token, err := jwt.ParseWithClaims(jwtToken, &AttestationClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// Validate the signing method.
+		// Only HMAC is accepted, and only with the configured secret.
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		if bc.config.JWTSecret == "" {
-			// In production, use a proper key.
-			return []byte("dev-secret-do-not-use-in-production"), nil
-		}
 		return []byte(bc.config.JWTSecret), nil
-	})
+	}, jwt.WithExpirationRequired())
 	if err != nil {
 		return nil, fmt.Errorf("JWT verification failed: %w", err)
 	}
@@ -175,6 +183,20 @@ func (bc *BridgeClient) ProcessAttestation(jwtToken string) (*AttestationResult,
 	claims, ok := token.Claims.(*AttestationClaims)
 	if !ok || !token.Valid {
 		return nil, fmt.Errorf("invalid JWT claims")
+	}
+
+	// Replay protection: each attestation carries a unique jti, accepted once.
+	if claims.ID == "" {
+		return nil, fmt.Errorf("jti claim is required for replay protection")
+	}
+	now := time.Now()
+	for id, exp := range bc.usedJTI {
+		if now.After(exp) {
+			delete(bc.usedJTI, id)
+		}
+	}
+	if _, seen := bc.usedJTI[claims.ID]; seen {
+		return nil, fmt.Errorf("attestation %q has already been used", claims.ID)
 	}
 
 	// Validate address format (basic Cosmos bech32 validation).
@@ -227,6 +249,7 @@ func (bc *BridgeClient) ProcessAttestation(jwtToken string) (*AttestationResult,
 		Timestamp:    time.Now().Unix(),
 	}
 
+	bc.usedJTI[claims.ID] = claims.ExpiresAt.Time
 	bc.dailyCount++
 	bc.attestationLog = append(bc.attestationLog, *result)
 

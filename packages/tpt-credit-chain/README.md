@@ -1,6 +1,8 @@
 # tpt-credit-chain
 
-Sovereign credit blockchain. Cosmos SDK v0.50 / CometBFT.
+> **Status: simulator / prototype.** Issuance and burn rules run in memory. There is no consensus, no networking and no persistence yet; state is lost on restart. The Cosmos SDK / CometBFT chain is planned ([todo §7](../../todo.md#7-credit-chain-relabel-as-simulator)).
+
+Sovereign credit blockchain. Target design: Cosmos SDK v0.50 / CometBFT (planned).
 
 **Chain ID:** `tpt-credit-1`  
 **Denomination:** `ucredit` (1 credit = 1,000,000 ucredit)  
