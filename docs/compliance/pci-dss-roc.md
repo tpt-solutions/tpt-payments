@@ -1,5 +1,7 @@
 # PCI DSS Report on Compliance (ROC) Documentation Scaffolding
 
+> **Status: template / draft, pending QSA review.** This is not an attestation of compliance. Operators must engage a Qualified Security Assessor (QSA) to produce and sign their own ROC.
+
 ## Overview
 This document provides scaffolding for generating a PCI DSS (Payment Card Industry Data Security Standard) Report on Compliance (ROC). The ROC is required for merchants and service providers that process, store, or transmit cardholder data and meet certain volume thresholds.
 

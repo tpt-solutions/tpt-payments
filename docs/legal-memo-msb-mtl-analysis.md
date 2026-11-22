@@ -1,4 +1,6 @@
 # LEGAL MEMORANDUM: Money Transmitter License Analysis
+
+> **Status: draft working analysis, pending counsel review.** This is not legal advice and must not be relied on without review by licensed counsel.
 ## TPT Pay Bank-Sponsor Model
 
 **Date**: April 27, 2026

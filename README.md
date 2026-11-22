@@ -27,7 +27,7 @@ frontend/                Next.js — merchant dashboard + developer portal
 deploy/                  Helm chart, monitoring (Prometheus/Grafana), testnet stack + faucet
 docs/                    Operator, compliance and security documentation
 tools/                   Developer tooling (Stripe compatibility report)
-backend/                 Legacy prototype, being ported into tpt-pay-core (not built, not supported)
+archive/backend/         Archived legacy prototype (not built, not supported, not in CI); features are ported into tpt-pay-core per todo §10
 ```
 
 Planned (not yet in the repo): wallets (PWA, native, shared core), chain explorer, `tpt` CLI,
@@ -49,7 +49,7 @@ Planned (not yet in the repo): wallets (PWA, native, shared core), chain explore
 | Secret encryption (Vault / KMS) | **Planned** | todo §2 |
 | Sandbox card adapter | **Alpha** | todo §9 |
 | `BankSponsorAdapter` / `DirectAcquiringAdapter` | **Planned** | todo §9 |
-| Refunds API | **Planned** | todo §2 |
+| Refunds API | **Alpha** (sandbox adapter; tested incl. concurrency) | todo §2 |
 | Stripe API compatibility (v2024-06-20) | **Planned** (compat report not yet green) | todo §8 |
 | OpenAPI spec & generated SDKs | **Planned** | todo §4 |
 | JS SDK (`@tpt/pay`) | **Alpha** (packaging pending) | todo §8 |

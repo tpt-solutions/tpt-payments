@@ -1,5 +1,7 @@
 # TPT Pay Anti-Money Laundering (AML) Policy Template
 
+> **Status: template / draft, pending counsel review.** Not adopted policy. Operators must have it reviewed by counsel before use.
+
 > **DISCLAIMER**: This is a template only and does not constitute legal advice. Operators must adapt this policy to their specific jurisdiction, business model, and risk profile, and have it reviewed and approved by qualified legal counsel and compliance professionals before implementation.
 
 ---

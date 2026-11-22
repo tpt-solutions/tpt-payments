@@ -13,12 +13,12 @@ This document defines the scope for an external security audit of the TPT Pay pl
 ## Scope Boundaries
 
 ### In Scope
-- `tpt-payments/backend/api/` — API handlers, middleware, authentication, rate limiting.
-- `tpt-payments/backend/internal/ledger/` — Ledger implementation, double-entry invariants, integrity checks. 
-- `tpt-payments/backend/internal/auth/` — API key hashing, JWT generation, session management.
-- `tpt-payments/backend/internal/webhooks/` — Webhook signing, delivery, retry logic, dead-letter queue.
-- `tpt-payments/backend/internal/fraud/` — Rule engine, velocity limiter, card testing detector, blocklist management. 
-- `tpt-payments/backend/internal/compliance/` — GDPR erasure handler, AML screening, SAR filing hooks. 
+- `tpt-payments/archive/backend/api/` — API handlers, middleware, authentication, rate limiting.
+- `tpt-payments/archive/backend/internal/ledger/` — Ledger implementation, double-entry invariants, integrity checks. 
+- `tpt-payments/archive/backend/internal/auth/` — API key hashing, JWT generation, session management.
+- `tpt-payments/archive/backend/internal/webhooks/` — Webhook signing, delivery, retry logic, dead-letter queue.
+- `tpt-payments/archive/backend/internal/fraud/` — Rule engine, velocity limiter, card testing detector, blocklist management. 
+- `tpt-payments/archive/backend/internal/compliance/` — GDPR erasure handler, AML screening, SAR filing hooks. 
 - `tpt-payments/frontend/` — Merchant dashboard authentication, session management, CSRF protection, XSS prevention. 
 
 ### Out of Scope

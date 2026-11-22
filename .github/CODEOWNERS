@@ -1,0 +1,10 @@
+# Code owners are requested for review on every pull request. Replace with a team once one exists.
+* @PhillipC05
+
+# Money movement and security-sensitive code needs an explicit owner.
+/packages/tpt-pay-core/internal/ledger/        @PhillipC05
+/packages/tpt-pay-core/internal/payment/       @PhillipC05
+/packages/tpt-pay-core/internal/apikey/        @PhillipC05
+/packages/tpt-pay-core/internal/secretbox/     @PhillipC05
+/packages/tpt-pay-core/internal/webhook/       @PhillipC05
+/packages/tpt-pay-core/migrations/             @PhillipC05
