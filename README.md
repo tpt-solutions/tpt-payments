@@ -67,47 +67,68 @@ Legend: **Stable** (tested, supported) · **Alpha** (works, gaps known) · **Pro
 
 ## Quick start (local development)
 
-### Prerequisites
+### First payment in five minutes
 
-- [Go 1.23+](https://go.dev/dl/)
-- [Docker + Docker Compose](https://docs.docker.com/get-docker/)
-- [Node.js 20+](https://nodejs.org/) (for JS packages)
-- [golangci-lint](https://golangci-lint.run/usage/install/) (for linting)
-- [Atlas](https://atlasgo.io/getting-started) (for database migrations)
-
-`scripts/setup-dev.sh` checks for and installs most of these.
-
-### 1. Clone and set up
+You need [Docker with Compose](https://docs.docker.com/get-docker/) running. Then, from the
+repository root:
 
 ```bash
 git clone https://github.com/tpt-solutions/tpt-payments.git
 cd tpt-payments
-cp packages/tpt-pay-core/.env.example packages/tpt-pay-core/.env
+make quickstart
 ```
 
-### 2. Start the dev stack
+`make quickstart` (a Go program, so it works on Windows, macOS and Linux) does this:
+
+1. Creates `packages/tpt-pay-core/.env` from the example if you do not have one. An existing file is
+   never overwritten.
+2. Starts PostgreSQL, Redis, NATS, Vault and `tpt-pay-core` with `docker compose up -d --build`.
+3. Waits for `http://localhost:8080/health`.
+4. Creates a sandbox merchant and prints a **test** secret key. It never prints a live key.
+5. Prints the `curl` commands for a first payment.
+
+Then, using the key it printed:
 
 ```bash
-make dev
+# 1. Create a payment intent (amounts are in minor units: 1000 = 10.00 USD)
+curl -s -X POST http://localhost:8080/v1/payment_intents   -H "Authorization: Bearer sk_test_..." -H "Content-Type: application/json"   -d '{"amount":1000,"currency":"usd"}'
+
+# 2. Confirm it with a sandbox card (use the id from step 1)
+curl -s -X POST http://localhost:8080/v1/payment_intents/pi_.../confirm   -H "Authorization: Bearer sk_test_..." -H "Content-Type: application/json"   -d '{"payment_method":"pm_card_visa"}'
 ```
 
-This starts PostgreSQL, Redis, NATS, HashiCorp Vault (dev mode), and `tpt-pay-core` with hot reload.
-(Redis, NATS and Vault are provisioned but not yet used by the core service — see Status.)
+The status becomes `succeeded`. The OpenAPI document is served at `/openapi.json`.
 
-### 3. Run migrations
+### Sandbox test cards
+
+The sandbox adapter approves any payment method that is not a test card number. Pass one of these
+as `payment_method` to get that outcome:
+
+| `payment_method` | Result |
+|---|---|
+| `pm_card_visa` (or any other value) | Approved |
+| `4000000000000002` | Declined (`card_declined`) |
+| `4000000000009995` | Declined (`insufficient_funds`) |
+| `4000000000000069` | Declined (`expired_card`) |
+| `4000000000000101` | Declined (`incorrect_cvc`) |
+| `4000000000000119` | Network error: the outcome is unknown, and the intent is left in `processing` for reconciliation |
+
+Test keys (`sk_test_` / `pk_test_`) only act on test-mode data. Live keys (`sk_live_`) are created
+with `go run ./cmd/bootstrap --live` and must never be used in development.
+
+### Working on the code
+
+Prerequisites: [Go 1.23+](https://go.dev/dl/), [Node.js 20+](https://nodejs.org/) for the JS packages,
+[golangci-lint](https://golangci-lint.run/usage/install/) for linting, and
+[Atlas](https://atlasgo.io/getting-started) for migrations. `scripts/setup-dev.sh` checks for and
+installs most of these.
 
 ```bash
-make migrate
+make dev        # full stack with hot reload (Redis, NATS and Vault are provisioned, not yet used by core)
+make migrate    # apply migrations with Atlas
+make test       # unit and integration tests; integration tests need TEST_DATABASE_URL
+make lint       # golangci-lint
 ```
-
-### 4. Run tests
-
-```bash
-make test
-```
-
-A one-command `make quickstart` that seeds a test merchant and API key and prints a first-payment
-`curl` is in progress (todo §4).
 
 ---
 
