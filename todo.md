@@ -5,13 +5,13 @@ Decisions: `packages/tpt-pay-core` is canonical (archive `backend/`); credit cha
 
 ## 0. Status honesty (land first; no scope is removed)
 Nothing below deletes a promised feature. Every promise stays and becomes a build item in §1–§9.
-- [ ] README "Status" table listing every promised capability (stable / alpha / prototype / in progress / simulator / planned), each row linking to its todo item; a row flips to "stable" only when its tests pass
-- [ ] Rows to include at minimum: NATS JetStream webhooks, Redis rate limiting, Vault/KMS encryption, `BankSponsorAdapter`, `DirectAcquiringAdapter`, Stripe compatibility, refunds, OpenAPI + generated SDKs, Cosmos SDK / CometBFT credit chain, wallets, explorer, `tpt` CLI, Helm, monitoring
-- [ ] Mark `docs/compliance/pci-dss-roc.md`, AML policy and legal memo as "template / draft, pending QSA or counsel" (expand them; do not delete)
-- [ ] Fix README package list to the real layout (`frontend/`, `packages/tpt-pay`, `packages/python`, `packages/tpt-credit-chain`, `packages/tpt-pay-core`) and reconcile the clone URL (`tpt-solutions/tpt-payments` per git remote)
-- [ ] Replace "1.0.0 / Production/Stable" labels (SDK package metadata, Helm `appVersion`, OpenAPI `info.version`) with an honest pre-release version such as `0.1.0` and a Development Status classifier
-- [ ] Reconcile LICENSE: `LICENSE-MIT` and `LICENSE-APACHE` are the dual-license files the README names; the tracked `LICENSE` file and package metadata must match
-- [ ] Add a short "Status" note to the top of `frontend/` and the credit-chain package README stating simulator / prototype status
+- [x] README "Status" table listing every promised capability (stable / alpha / prototype / in progress / simulator / planned), each row linking to its todo item; a row flips to "stable" only when its tests pass
+- [x] Rows to include at minimum: NATS JetStream webhooks, Redis rate limiting, Vault/KMS encryption, `BankSponsorAdapter`, `DirectAcquiringAdapter`, Stripe compatibility, refunds, OpenAPI + generated SDKs, Cosmos SDK / CometBFT credit chain, wallets, explorer, `tpt` CLI, Helm, monitoring
+- [x] Mark `docs/compliance/pci-dss-roc.md`, AML policy and legal memo as "template / draft, pending QSA or counsel" (expand them; do not delete)
+- [x] Fix README package list to the real layout (`frontend/`, `packages/tpt-pay`, `packages/python`, `packages/tpt-credit-chain`, `packages/tpt-pay-core`) and reconcile the clone URL (`tpt-solutions/tpt-payments` per git remote)
+- [x] Replace "1.0.0 / Production/Stable" labels (SDK package metadata, Helm `appVersion`, OpenAPI `info.version`) with an honest pre-release version such as `0.1.0` and a Development Status classifier
+- [x] Reconcile LICENSE: `LICENSE-MIT` and `LICENSE-APACHE` are the dual-license files the README names; the tracked `LICENSE` file and package metadata must match
+- [x] Add a short "Status" note to the top of `frontend/` and the credit-chain package README stating simulator / prototype status
 
 ## 1. Blocking bugs in core
 - [x] 1. Confirm always 400s: add attach-payment-method / allow `requires_payment_method → processing` with a PM; add `processing → requires_capture` (`internal/payment/intent.go:52`, `service.go:90,154`)
@@ -35,30 +35,30 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [x] Happy-path integration tests (`internal/payment/service_integration_test.go`, `api/router_integration_test.go`), run against PostgreSQL 18 with every migration applied: create → confirm → capture, decline/retry, partial capture, concurrent capture and confirm (20 workers, exactly one winner), cancel, ledger idempotency. Skipped unless `TEST_DATABASE_URL` is set. Not yet run under `-race` locally (no C compiler on this machine); CI runs it.
 
 ## 2. Missing features the README promises
-- [ ] Webhook delivery engine (outbox → NATS JetStream → HTTP delivery, retries, `webhook_deliveries` rows, 72h / 15-attempt policy)
+- [~] Webhook delivery engine (outbox → NATS JetStream → HTTP delivery, retries, `webhook_deliveries` rows, 72h / 15-attempt policy). Done: Postgres outbox (`webhook_deliveries`, migration 14), worker, retry config. Open: NATS JetStream transport; 72h / 15-attempt policy not re-verified
 - [ ] Redis rate limiting; Vault encryption for keys / webhook secrets
-- [ ] Refund endpoint (adapter `Refund` exists, no service / handler)
-- [ ] `/readyz` (DB ping) and `/metrics` routes (Prometheus config has nothing to scrape)
-- [ ] Request logging; log causes of 500s; use `errors.As` instead of type assertions
-- [ ] Write to `audit_log`
-- [ ] `http.MaxBytesReader` on all handlers; reject trailing JSON; don't swallow decode errors in Capture/Cancel
-- [ ] ISO-4217 currency allowlist, zero-decimal currencies, max amount, metadata limits, enum validation for `capture_method` / `confirmation_method`
-- [ ] `livemode` from key mode; Stripe-style 400 for invalid params
-- [ ] `get()` should select `canceled_at` and `ledger_txn_id`
-- [ ] Production guards: refuse sandbox adapter, dev Vault token, default DB creds when `APP_ENV=production`; make sandbox state survive restarts or fail loudly
-- [ ] Replace bcrypt-per-request with HMAC / SHA-256 for high-entropy keys; longer lookup prefix; bounded `last_used_at` update
-- [ ] Config: return errors instead of panics; validate pool min/max; drop unused required `NATS_URL`
-- [ ] Trust `X-Forwarded-For` only from configured proxies (`RealIP`)
-- [ ] Serve a real `/openapi.json` (currently 501); complete spec (cancel, api_keys, webhook_endpoints/{id}, refunds)
-- [ ] Ledger: DB-level balanced-entries constraint, TRUNCATE guard, per-currency `Balance`, currency match with account, scheduled `VerifyIntegrity`
+- [x] Refund endpoint (`POST /v1/refunds`, `GET /v1/refunds/{id}`): row-locked reservation, network call outside the transaction, ledger reversal, `charge.refunded`. Integration tests in `refund_integration_test.go` (partial and full refunds, over-refund, concurrency, tenant isolation)
+- [x] `/readyz` (DB ping) and `/metrics` routes (Prometheus config has nothing to scrape)
+- [x] Request logging; log causes of 500s; use `errors.As` instead of type assertions
+- [x] Write to `audit_log`: every successful state-changing `/v1` call (`middleware/audit.go`). Known gap: the row is written after the response, not in the same transaction as the state change. Tests in `audit_integration_test.go`
+- [x] `http.MaxBytesReader` on all handlers; reject trailing JSON; don't swallow decode errors in Capture/Cancel
+- [x] ISO-4217 currency allowlist. Done: ISO-4217 check, per-currency max amount (zero-decimal aware), metadata limits, enum validation, zero-decimal currencies, max amount, metadata limits, enum validation for `capture_method` / `confirmation_method`
+- [x] `livemode` from key mode; Stripe-style 400 for invalid params
+- [x] `get()` should select `canceled_at` and `ledger_txn_id`
+- [x] Production guards: refuse sandbox adapter, dev Vault token, default DB creds when `APP_ENV=production`; make sandbox state survive restarts or fail loudly
+- [x] Replace bcrypt-per-request with HMAC / SHA-256 for high-entropy keys; longer lookup prefix; bounded `last_used_at` update
+- [x] Config: return errors instead of panics; validate pool min/max; drop unused required `NATS_URL`
+- [~] Trust `X-Forwarded-For` only from configured proxies. Done: no forwarded header is trusted, so client IPs come from the connection. Open: configured trusted-proxy support (`RealIP`)
+- [x] Serve a real `/openapi.json` (currently 501); complete spec (cancel, api_keys, webhook_endpoints/{id}, refunds)
+- [x] Ledger: DB-level balanced-entries constraint, TRUNCATE guard, currency-matches-account (migration 16), per-currency `Balance` / `MerchantBalances`, scheduled `VerifyIntegrity` (`LEDGER_INTEGRITY_INTERVAL`), TRUNCATE guard, per-currency `Balance`, currency match with account, scheduled `VerifyIntegrity`
 
 ## 3. Repo hygiene
-- [ ] Archive `backend/` (no go.mod, doesn't build, unauthenticated, XSS, fake compliance code); exclude from CI
+- [x] Archive `backend/` (no go.mod, doesn't build, unauthenticated, XSS, fake compliance code); exclude from CI. Moved to `archive/backend/` with a note; no CI or Dependabot reference existed
 - [x] Removed `tools/compatibility-report` (replaced by `packages/tpt-pay-core/cmd/compatreport`). Stray `chain/go.mod`: not yet removed
 - [~] Add `.gitignore` (done); `git rm` committed binaries (`packages/tpt-credit-chain/bin/tptcreditd.exe`, `tptcreditd.exe`) (not done: needs your go-ahead, they are tracked)
-- [ ] Add `.golangci.yml`, `CODEOWNERS`, `CHANGELOG.md`; tag a first release
+- [~] Add `.golangci.yml`, `CODEOWNERS`, `CHANGELOG.md`; tag a first release. Done: all three files; golangci-lint is clean. Open: first tag. CODEOWNERS points at the repo owner only
 - [ ] Unify base URL (4 different today), Go module / org paths, version numbers
-- [ ] LICENSE: tracked `LICENSE` is MIT, but `LICENSE-APACHE` and `LICENSE-MIT` exist; reconcile with README / setup.py / package.json
+- [x] LICENSE: tracked `LICENSE` is MIT, but `LICENSE-APACHE` and `LICENSE-MIT` exist; reconcile with README / setup.py / package.json
 - [ ] Tests: handlers, `payment.Service`, ledger DB ops, apikey, idempotency middleware, config; testcontainers integration tests; webhook Verify edge cases (multi-v1, malformed / future timestamps)
 
 ## 4. Adoption: examples, templates, DX
@@ -79,16 +79,16 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [ ] Always-run "required" gate job (path-filtered workflows can leave required checks stuck)
 - [ ] `security.yml`: fix audited paths; add CodeQL, gitleaks, Trivy; pin govulncheck; remove `continue-on-error` on chain govulncheck
 - [ ] Dependabot: npm (frontend, packages/tpt-pay, faucet), pip, docker, `/backend` (or archive), `/chain`, `/tools`; grouping + PR limits
-- [ ] Pin `arigaio/atlas:latest`, Helm `image.tag: latest`, other floating tags
+- [~] Pin `arigaio/atlas:latest`, Helm `image.tag: latest`, other floating tags. Done: Helm tag now defaults to appVersion. Open: Atlas pin (CLI not installed here, so no verified version), other floating tags
 - [ ] Release: release-please / conventional commits, GHCR push, cosign, SBOM, SLSA provenance, SDK + Helm publish, `-race`, fix `git describe` on first tag
 - [ ] Fix `ci-credit-chain.yml` simulation step (no tests exist, `continue-on-error`)
 - [ ] Stale / labeler / PR size bots; markdown lint
 
 ## 6. Security (outside core)
-- [ ] Credit chain identity bridge: remove hard-coded JWT fallback secret (`packages/tpt-credit-chain/services/identity/identity_bridge.go:165`); require `exp`, add replay protection; prefer asymmetric keys
-- [ ] Frontend auth: remove hard-coded user, scrypt salt, default JWT secret, hard-coded TOTP secret (`frontend/app/api/auth/*`); add `middleware.ts`; rate-limit login / 2FA; single-use pre-auth token
-- [ ] Frontend: signing secret via `crypto.getRandomValues`, not `Math.random()`; bump `next` to ≥14.2.25
-- [ ] Faucet: rate limit unit bug (ms vs s), lockfile for Docker build, stop leaking error text, real address validation, sequence-collision handling
+- [~] Credit chain identity bridge: remove hard-coded JWT fallback secret (`packages/tpt-credit-chain/services/identity/identity_bridge.go:165`); require `exp`, add replay protection; prefer asymmetric keys. Done: fails closed without a secret, requires `exp` and `jti`, rejects reused `jti` (`identity_bridge_test.go`). Open: asymmetric keys
+- [~] Frontend auth: remove hard-coded user, scrypt salt, default JWT secret, hard-coded TOTP secret (`frontend/app/api/auth/*`); add `middleware.ts`; rate-limit login / 2FA; single-use pre-auth token. Done: credentials come from `DEMO_USER_*` env vars (no defaults; 503 when unset); per-user random salt in `scrypt$salt$key`; no default JWT key (`lib/auth.ts`); `middleware.ts` guards dashboard routes; login and 2FA rate-limited; pre-auth tokens single-use. Open: a real user store, account lockout, a shared rate-limit store. The prototype account still exists
+- [~] Frontend: signing secret via `crypto.getRandomValues`, not `Math.random()`; bump `next` to ≥14.2.25. Done: API-key material uses `crypto.getRandomValues`; `next` is 14.2.35 (newest 14.2 patch). Open: `next` 14 declares a React 18 peer while the project uses React 19, so a clean `npm install` needs `--legacy-peer-deps`. Fix with a Next 15 migration or React 18 (decision needed)
+- [~] Faucet: rate limit unit bug fixed (`RATE_LIMIT_PER_IP` is seconds; `formatWindow` builds the message). Open: lockfile for Docker build, stop leaking error text, real address validation, sequence-collision handling
 - [ ] Helm: add `_helpers.tpl`, chart dependencies, Secret for credentials, `securityContext`, `sslmode`
 - [ ] Remove committed dev credentials from compose / values (Vault token, Grafana password, DB passwords) or clearly gate them to dev
 - [ ] `golang-jwt/jwt/v5` v5.2.1: check for fix in 5.2.2+ and bump; `aiohttp>=3.8.0` floor; Python 3.8 EOL
@@ -108,7 +108,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [x] JS SDK: tsconfig, jest, eslint, build with exports map, replace `crypto-js`, secret vs publishable surface enforced before any request, integer amounts and Unix `created` as core returns them, `TPTPayError` with code/param/requestId, idempotency + retry
   Open: README; `hosted_invoice_url` is not in the types because invoices are not served yet
 - [ ] Align SDK / docs page: package names, import paths, signatures (`frontend/app/developers/sdks/page.tsx`)
-- [ ] Frontend: fix `@/*` alias (no `src/`), add missing `components/ui/*` and `globals.css`, declare `otpauth` / `@tpt/pay`, drop obsolete `experimental.serverActions`, `await cookies()`, replace mock dashboard data with API calls
+- [~] Frontend: fix `@/*` alias (no `src/`), add missing `components/ui/*` and `globals.css`, declare `otpauth` / `@tpt/pay`, drop obsolete `experimental.serverActions`, `await cookies()`, replace mock dashboard data with API calls. Done: `otpauth` declared; `cookies()` awaited in auth routes. Open: alias, missing components and `globals.css` (`tsc` reports them), mock data
 - [ ] Webhook header name consistency (`Stripe-Signature` vs `Column-Signature` vs `TPT-*`)
 - [ ] Stripe-compat: event names (`chargeback.*` vs `charge.dispute.*`), 422 vs 400, wire compat suite into a module
 
