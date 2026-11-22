@@ -1,6 +1,6 @@
 {
   "name": "tpt-credit-faucet",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Web-based faucet for TPT Credit testnet",
   "main": "index.js",

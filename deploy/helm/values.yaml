@@ -5,7 +5,8 @@ replicaCount: 2
 image:
   repository: ghcr.io/tpt-payments/tpt-payments
   pullPolicy: IfNotPresent
-  tag: latest
+  # Empty means the chart appVersion. Set an explicit tag for production deploys.
+  tag: ""
 
 imagePullSecrets: []
 nameOverride: ""

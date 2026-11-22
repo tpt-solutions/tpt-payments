@@ -23,7 +23,14 @@ const FAUCET_MNEMONIC = process.env.FAUCET_MNEMONIC;
 const FAUCET_AMOUNT = process.env.FAUCET_AMOUNT || '10000000'; // 10 credits in ucredit
 const CHAIN_ID = process.env.CHAIN_ID || 'tpt-credit-testnet-1';
 const DENOM = 'ucredit';
-const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_PER_IP || '86400000'); // 24 hours
+// RATE_LIMIT_PER_IP is the per-IP window in SECONDS (default 24 hours). It was previously read as
+// milliseconds, which made the window 86 seconds under the testnet compose file.
+const RATE_LIMIT_WINDOW_SECONDS = Number.parseInt(process.env.RATE_LIMIT_PER_IP || '86400', 10);
+if (!Number.isInteger(RATE_LIMIT_WINDOW_SECONDS) || RATE_LIMIT_WINDOW_SECONDS <= 0) {
+  console.error('RATE_LIMIT_PER_IP must be a positive number of seconds');
+  process.exit(1);
+}
+const RATE_LIMIT_WINDOW_MS = RATE_LIMIT_WINDOW_SECONDS * 1000;
 
 // In-memory rate limit store (IP -> timestamp of last request)
 const rateLimitStore = new Map();
@@ -65,6 +72,13 @@ async function initFaucet() {
   }
 }
 
+// Human-readable window, e.g. 86400 -> "24 hours".
+function formatWindow(seconds) {
+  if (seconds % 3600 === 0) return `${seconds / 3600} hours`;
+  if (seconds % 60 === 0) return `${seconds / 60} minutes`;
+  return `${seconds} seconds`;
+}
+
 // Per-IP rate limiting
 function getRateLimitMiddleware() {
   return rateLimit({
@@ -72,8 +86,8 @@ function getRateLimitMiddleware() {
     max: 1,
     message: {
       error: 'Rate limit exceeded',
-      message: 'You can only request tokens once per 24 hours. Please try again later.',
-      retryAfter: `${Math.ceil(RATE_LIMIT_WINDOW_MS / 1000 / 60 / 60)} hours`,
+      message: `You can only request tokens once per ${formatWindow(RATE_LIMIT_WINDOW_SECONDS)}. Please try again later.`,
+      retryAfter: formatWindow(RATE_LIMIT_WINDOW_SECONDS),
     },
     standardHeaders: true,
     legacyHeaders: false,
