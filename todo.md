@@ -109,7 +109,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
   Open: README; `hosted_invoice_url` is not in the types because invoices are not served yet
 - [ ] Align SDK / docs page: package names, import paths, signatures (`frontend/app/developers/sdks/page.tsx`)
 - [~] Frontend: fix `@/*` alias (no `src/`), add missing `components/ui/*` and `globals.css`, declare `otpauth` / `@tpt/pay`, drop obsolete `experimental.serverActions`, `await cookies()`, replace mock dashboard data with API calls. Done: `otpauth` declared; `cookies()` awaited in auth routes. Open: alias, missing components and `globals.css` (`tsc` reports them), mock data
-- [ ] Webhook header name consistency (`Stripe-Signature` vs `Column-Signature` vs `TPT-*`)
+- [x] Webhook header name consistency (`Stripe-Signature` vs `Column-Signature` vs `TPT-*`). Done: `TPT-Signature` in core and both SDKs; no active code uses the other names (they were only in the archived backend)
 - [ ] Stripe-compat: event names (`chargeback.*` vs `charge.dispute.*`), 422 vs 400, wire compat suite into a module
 
 ## 9. Innovative additions
