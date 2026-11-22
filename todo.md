@@ -95,7 +95,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 
 ## 7. Credit chain (relabel as simulator)
 - [ ] Update README, testnet compose, faucet, explorer, healthchecks to match reality (no CometBFT / ports 26657, 1317, 9090; metrics on 26660 only)
-- [ ] Remove nonexistent subcommands from `scripts/deploy-testnet.sh`, `devnet-reset.sh`; add `--home` / `--overwrite` or fix docs
+- [x] Remove nonexistent subcommands from `scripts/deploy-testnet.sh`, `devnet-reset.sh`; add `--home` / `--overwrite` or fix docs. Done: `init` and `start` accept `--home`, and `init` refuses to replace a genesis without `--overwrite` (tested). Keys and gentx calls were removed; the deploy script requires `FAUCET_MNEMONIC` instead of generating one. Key management is still open
 - [ ] State persistence (currently lost on restart); make `tx` / `query` usable outside `start` process
 - [ ] Fix genesis JSON mismatch (`config/devnet-genesis.json` vs `GenesisDoc`); validate genesis data
 - [ ] Fix invalid bech32 reserve address (`app/app.go:51-53`); validate addresses / UUIDs in keeper
