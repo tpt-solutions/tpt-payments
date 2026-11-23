@@ -3,93 +3,64 @@ import { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Webhook Events - TPT Pay Developer Portal',
-  description: 'Complete catalog of webhook event types with example payloads',
+  description: 'Catalog of the webhook event types the platform emits, with example payloads',
 };
+
+// These are the event types in packages/tpt-pay-core/internal/webhook (KnownEventTypes).
+// Subscriptions, invoices, customers and disputes are not emitted yet, so they are not listed.
+const EVENT_ID = 'evt_3MtwB2eZvKYlo2C2eZvKYlo';
+const PI_ID = 'pi_3MtwB2eZvKYlo2C2eZvKYlo';
+
+function paymentIntentEvent(type: string, status: string, created: number, extra: Record<string, unknown> = {}) {
+  return {
+    type,
+    example: {
+      id: EVENT_ID,
+      object: 'event',
+      type,
+      created,
+      data: {
+        object: {
+          id: PI_ID,
+          object: 'payment_intent',
+          amount: 2000,
+          currency: 'usd',
+          status,
+          ...extra,
+        },
+      },
+    },
+  };
+}
 
 const webhookEvents = [
   {
     category: 'Payment Intents',
     events: [
       {
-        type: 'payment_intent.created',
-        description: 'Occurs when a new payment intent is created.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'payment_intent.created',
-          created: 1700000000,
-          data: {
-            object: {
-              id: 'pi_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'payment_intent',
-              amount: 2000,
-              currency: 'usd',
-              status: 'requires_payment_method',
-              created: 1700000000,
-            },
-          },
-        },
+        ...paymentIntentEvent('payment_intent.created', 'requires_payment_method', 1700000000),
+        description: 'A payment intent was created.',
       },
       {
-        type: 'payment_intent.succeeded',
-        description: 'Occurs when a payment intent succeeds.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'payment_intent.succeeded',
-          created: 1700000100,
-          data: {
-            object: {
-              id: 'pi_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'payment_intent',
-              amount: 2000,
-              currency: 'usd',
-              status: 'succeeded',
-              created: 1700000000,
-            },
-          },
-        },
+        ...paymentIntentEvent('payment_intent.succeeded', 'succeeded', 1700000100),
+        description: 'A payment intent was captured or authorized in full.',
       },
       {
-        type: 'payment_intent.canceled',
-        description: 'Occurs when a payment intent is canceled.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'payment_intent.canceled',
-          created: 1700000200,
-          data: {
-            object: {
-              id: 'pi_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'payment_intent',
-              amount: 2000,
-              currency: 'usd',
-              status: 'canceled',
-              created: 1700000000,
-            },
-          },
-        },
+        ...paymentIntentEvent('payment_intent.payment_failed', 'requires_payment_method', 1700000150, {
+          last_payment_error: { code: 'card_declined', message: 'Your card was declined.' },
+        }),
+        description: 'A payment attempt was declined. The intent can be retried.',
       },
       {
-        type: 'payment_intent.fraud_flagged',
-        description: 'Occurs when a payment intent is flagged by fraud detection.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'payment_intent.fraud_flagged',
-          created: 1700000300,
-          data: {
-            object: {
-              id: 'pi_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'payment_intent',
-              amount: 2000,
-              currency: 'usd',
-              status: 'requires_payment_method',
-              fraud_reason: 'card_testing',
-              fraud_score: 85,
-            },
-          },
-        },
+        ...paymentIntentEvent('payment_intent.canceled', 'canceled', 1700000200),
+        description: 'A payment intent was canceled.',
+      },
+      {
+        ...paymentIntentEvent('payment_intent.fraud_flagged', 'requires_payment_method', 1700000300, {
+          fraud_reason: 'card_testing',
+          fraud_score: 85,
+        }),
+        description: 'A payment intent was flagged by fraud checks.',
       },
     ],
   },
@@ -97,143 +68,21 @@ const webhookEvents = [
     category: 'Refunds',
     events: [
       {
-        type: 'refund.created',
-        description: 'Occurs when a refund is created.',
+        type: 'charge.refunded',
+        description: 'A refund was recorded against a payment. The name matches Stripe so existing receivers work.',
         example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
+          id: EVENT_ID,
           object: 'event',
-          type: 'refund.created',
+          type: 'charge.refunded',
           created: 1700000400,
           data: {
             object: {
-              id: 're_3MtwB2eZvKYlo2C2eZvKYlo',
+              id: 'rf_3MtwB2eZvKYlo2C2eZvKYlo',
               object: 'refund',
-              amount: 2000,
-              status: 'pending',
-              payment_intent: 'pi_3MtwB2eZvKYlo2C2eZvKYlo',
-            },
-          },
-        },
-      },
-      {
-        type: 'refund.succeeded',
-        description: 'Occurs when a refund succeeds.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'refund.succeeded',
-          created: 1700000500,
-          data: {
-            object: {
-              id: 're_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'refund',
-              amount: 2000,
+              amount: 1000,
+              currency: 'usd',
+              payment_intent: PI_ID,
               status: 'succeeded',
-              payment_intent: 'pi_3MtwB2eZvKYlo2C2eZvKYlo',
-            },
-          },
-        },
-      },
-    ],
-  },
-  {
-    category: 'Subscriptions',
-    events: [
-      {
-        type: 'subscription.created',
-        description: 'Occurs when a subscription is created.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'subscription.created',
-          created: 1700000600,
-          data: {
-            object: {
-              id: 'sub_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'subscription',
-              status: 'trialing',
-              current_period_start: 1700000600,
-              current_period_end: 1700691200,
-            },
-          },
-        },
-      },
-      {
-        type: 'subscription.updated',
-        description: 'Occurs when a subscription is updated.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'subscription.updated',
-          created: 1700000700,
-          data: {
-            object: {
-              id: 'sub_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'subscription',
-              status: 'active',
-              current_period_start: 1700000600,
-              current_period_end: 1700691200,
-            },
-          },
-        },
-      },
-      {
-        type: 'subscription.deleted',
-        description: 'Occurs when a subscription is canceled.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'subscription.deleted',
-          created: 1700000800,
-          data: {
-            object: {
-              id: 'sub_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'subscription',
-              status: 'canceled',
-              canceled_at: 1700000800,
-            },
-          },
-        },
-      },
-      {
-        type: 'subscription.trial_will_end',
-        description: 'Occurs 3 days before a subscription trial ends.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'subscription.trial_will_end',
-          created: 1700688200,
-          data: {
-            object: {
-              id: 'sub_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'subscription',
-              status: 'trialing',
-              trial_end: 1700691200,
-            },
-          },
-        },
-      },
-    ],
-  },
-  {
-    category: 'Disputes',
-    events: [
-      {
-        type: 'charge.dispute.created',
-        description: 'Occurs when a dispute is created.',
-        example: {
-          id: 'evt_3MtwB2eZvKYlo2C2eZvKYlo',
-          object: 'event',
-          type: 'charge.dispute.created',
-          created: 1700000900,
-          data: {
-            object: {
-              id: 'dp_3MtwB2eZvKYlo2C2eZvKYlo',
-              object: 'dispute',
-              amount: 2000,
-              status: 'needs_response',
-              reason: 'fraudulent',
-              payment_intent: 'pi_3MtwB2eZvKYlo2C2eZvKYlo',
             },
           },
         },
@@ -242,17 +91,17 @@ const webhookEvents = [
   },
 ];
 
-function EventCard({ event }: { event: any }) {
+function EventCard({ event }: { event: { type: string; description: string; example: object } }) {
   return (
-    <div className="border rounded-lg overflow-hidden">
-      <div className="bg-gray-50 px-4 py-3 border-b">
-        <code className="text-sm font-semibold text-blue-700">{event.type}</code>
+    <div className="bg-white rounded-lg shadow border">
+      <div className="px-4 py-3 border-b">
+        <code className="text-sm font-mono text-gray-900">{event.type}</code>
       </div>
       <div className="p-4">
         <p className="text-sm text-gray-600 mb-3">{event.description}</p>
         <details className="mt-3">
           <summary className="cursor-pointer text-sm font-medium text-blue-600 hover:text-blue-800">
-            View Example Payload
+            View example payload
           </summary>
           <pre className="mt-2 bg-gray-900 text-gray-100 p-4 rounded overflow-x-auto text-xs">
             {JSON.stringify(event.example, null, 2)}
@@ -270,29 +119,23 @@ export default function WebhookEventsPage() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900">Webhook Event Catalog</h1>
           <p className="mt-4 text-lg text-gray-600">
-            Complete catalog of all webhook event types with example payloads.
+            The event types the platform sends today, with example payloads.
           </p>
         </div>
 
-        {/* Quick Reference */}
         <div className="mb-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-blue-900 mb-3">Webhook Signature Verification</h2>
+          <h2 className="text-lg font-semibold text-blue-900 mb-3">Verifying signatures</h2>
           <p className="text-sm text-blue-800 mb-3">
-            All webhook payloads are signed with a HMAC-SHA256 signature using your webhook endpoint's secret.
+            Each delivery carries a <code>TPT-Signature</code> header: a timestamp and an HMAC-SHA256 over the
+            timestamp and the raw body, keyed by the endpoint secret. Verify the raw bytes before parsing.
           </p>
           <pre className="bg-blue-900 text-blue-100 p-4 rounded overflow-x-auto text-xs">
-{`// JavaScript example
-const stripe = require('@tpt/pay');
+{`import { constructEvent } from '@tpt/pay/webhooks';
 
-const event = stripe.webhooks.constructEvent(
-  payload,
-  signature,
-  webhookSecret
-);`}
+const event = constructEvent(rawBody, req.headers['tpt-signature'], webhookSecret);`}
           </pre>
         </div>
 
-        {/* Event Categories */}
         <div className="space-y-8">
           {webhookEvents.map((category) => (
             <div key={category.category}>

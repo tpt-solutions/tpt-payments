@@ -38,21 +38,14 @@ const mockEndpoints: WebhookEndpoint[] = [
   },
 ]
 
+// The event types the core service emits (packages/tpt-pay-core/internal/webhook).
 const availableEvents = [
   "payment_intent.created",
   "payment_intent.succeeded",
-  "payment_intent.failed",
+  "payment_intent.payment_failed",
   "payment_intent.canceled",
+  "payment_intent.fraud_flagged",
   "charge.refunded",
-  "charge.refund.updated",
-  "invoice.created",
-  "invoice.paid",
-  "invoice.payment_failed",
-  "subscription.created",
-  "subscription.updated",
-  "subscription.deleted",
-  "customer.created",
-  "customer.updated",
 ]
 
 export default function WebhooksPage() {

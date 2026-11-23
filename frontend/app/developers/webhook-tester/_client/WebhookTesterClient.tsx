@@ -3,18 +3,14 @@
 
 import { useState } from 'react';
 
+// The event types the core service emits (packages/tpt-pay-core/internal/webhook).
 const eventTypes = [
   'payment_intent.created',
   'payment_intent.succeeded',
+  'payment_intent.payment_failed',
   'payment_intent.canceled',
   'payment_intent.fraud_flagged',
-  'refund.created',
-  'refund.succeeded',
-  'subscription.created',
-  'subscription.updated',
-  'subscription.deleted',
-  'subscription.trial_will_end',
-  'charge.dispute.created',
+  'charge.refunded',
 ];
 
 export default function WebhookTesterPage() {
