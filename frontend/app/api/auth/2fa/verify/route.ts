@@ -13,6 +13,12 @@ import {
   newTokenId,
   prototypeUser,
 } from '../../../../../lib/auth'
+import {
+  accountKey,
+  clearFailedLogins,
+  lockedUntil,
+  recordFailedLogin,
+} from '../../../../../lib/lockout'
 
 const VERIFY_WINDOW_MS = 15 * 60 * 1000
 const VERIFY_MAX_ATTEMPTS = 10
@@ -38,6 +44,13 @@ export async function POST(request: Request) {
     const { token } = await request.json()
     if (typeof token !== 'string' || !/^\d{6}$/.test(token)) {
       return NextResponse.json({ error: 'Invalid 2FA token' }, { status: 401 })
+    }
+
+    // A per-account counter for the second factor. A correct password does not reset it: the
+    // password check can be repeated for every guess, so the code guesses are counted on their own.
+    const factorKey = `2fa:${accountKey(user.email)}`
+    if (lockedUntil(factorKey) !== null) {
+      return NextResponse.json({ error: 'Account temporarily locked. Try again later.' }, { status: 429 })
     }
 
     const cookieStore = await cookies()
@@ -69,8 +82,10 @@ export async function POST(request: Request) {
     const delta = totp.validate({ token, window: 1 })
     cookieStore.delete('pre_auth')
     if (delta === null) {
+      recordFailedLogin(factorKey)
       return NextResponse.json({ error: 'Invalid 2FA token' }, { status: 401 })
     }
+    clearFailedLogins(factorKey)
 
     const sessionToken = await new jose.SignJWT({
       email: user.email,
