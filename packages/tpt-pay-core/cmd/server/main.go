@@ -110,6 +110,10 @@ func run() error {
 		return err
 	}
 
+	if err := loadPolicy(cfg.Policy, paymentSvc); err != nil {
+		return err
+	}
+
 	limiter, err := buildRateLimiter(cfg.RateLimit, cfg.Redis.URL)
 	if err != nil {
 		return err

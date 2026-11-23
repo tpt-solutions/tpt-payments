@@ -16,6 +16,7 @@ import (
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apierrors"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ledger"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/policy"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/webhook"
 )
 
@@ -40,6 +41,18 @@ type Service struct {
 	pool    *pgxpool.Pool
 	adapter adapter.CardNetworkAdapter
 	ledger  *ledger.Ledger
+	policy  *policy.Engine // nil: no merchant rules
+}
+
+// Policy returns the installed rule set, or nil.
+func (s *Service) Policy() *policy.Engine {
+	return s.policy
+}
+
+// SetPolicy installs the merchant rule set checked before each payment is created. A nil engine
+// turns the checks off.
+func (s *Service) SetPolicy(e *policy.Engine) {
+	s.policy = e
 }
 
 // NewService creates a Service with the given dependencies.
@@ -67,6 +80,19 @@ func (s *Service) Create(ctx context.Context, scope Scope, params CreateParams) 
 	}
 	if err := ValidateMetadata(params.Metadata); err != nil {
 		return nil, err
+	}
+	if s.policy != nil {
+		decision := s.policy.Evaluate(policy.Input{
+			Amount: params.Amount, Currency: code, Livemode: scope.Livemode, Metadata: params.Metadata,
+		})
+		switch decision {
+		case policy.Block:
+			slog.Warn("payment blocked by merchant rule", "merchant_id", scope.MerchantID, "amount", params.Amount)
+			return nil, apierrors.PaymentBlocked()
+		case policy.Flag:
+			// Flags are logged for review. They do not change the payment yet.
+			slog.Info("payment flagged by merchant rule", "merchant_id", scope.MerchantID, "amount", params.Amount)
+		}
 	}
 	if err := ValidCaptureMethod(string(params.CaptureMethod)); err != nil {
 		return nil, err

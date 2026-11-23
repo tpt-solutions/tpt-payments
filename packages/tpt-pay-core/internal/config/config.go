@@ -14,6 +14,7 @@ type Config struct {
 	Database  DatabaseConfig
 	NATS      NATSConfig
 	Vault     VaultConfig
+	Policy    PolicyConfig
 	Redis     RedisConfig
 	RateLimit RateLimitConfig
 	Adapter   AdapterConfig
@@ -59,6 +60,11 @@ type VaultConfig struct {
 	// WrappedWebhookKey is the Transit ciphertext of the base64 webhook secret key. When set, the
 	// plaintext key is never read from the environment.
 	WrappedWebhookKey string
+}
+
+// PolicyConfig points at the merchant rule file (see internal/policy). Empty means no rules.
+type PolicyConfig struct {
+	File string
 }
 
 // RateLimitConfig controls per-key request limits. See internal/middleware/ratelimit.go.
@@ -141,6 +147,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg.Redis = RedisConfig{URL: getEnv("REDIS_URL", "redis://localhost:6379/0")}
+	cfg.Policy = PolicyConfig{File: os.Getenv("POLICY_FILE")}
 	cfg.RateLimit = RateLimitConfig{
 		Backend:   getEnv("RATE_LIMIT_BACKEND", "redis"),
 		PerMinute: p.integer("API_RATE_LIMIT", "100"),

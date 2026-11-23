@@ -40,6 +40,7 @@ const (
 	CodeRateLimitExceeded      ErrorCode = "rate_limit_exceeded"
 	CodeAPIKeyInvalid          ErrorCode = "api_key_invalid"
 	CodePermissionDenied       ErrorCode = "permission_denied"
+	CodePaymentBlocked         ErrorCode = "payment_blocked"
 )
 
 // APIError is the structured error returned in all error responses.
@@ -64,6 +65,17 @@ type Response struct {
 }
 
 // ── Constructors ──────────────────────────────────────────────────────────────
+
+// PaymentBlocked is returned when a merchant rule refuses the payment. The reason is not
+// given: a fraud rule that explains itself helps the attacker it is meant to stop.
+func PaymentBlocked() *APIError {
+	return &APIError{
+		StatusCode: http.StatusPaymentRequired,
+		Type:       ErrorTypeCardError,
+		Code:       CodePaymentBlocked,
+		Message:    "This payment was declined by a merchant rule.",
+	}
+}
 
 func NotFound(resource, id string) *APIError {
 	return &APIError{

@@ -130,7 +130,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [ ] SDK idempotency and retry advisor (auto keys, backoff)
 - [ ] OpenTelemetry tracing end to end
 - [ ] MCP server for sandbox + docs; `llms.txt`
-- [ ] Policy-as-code for routing / fraud rules (CEL / OPA) with dry-run
+- [~] Policy-as-code for routing / fraud rules (CEL / OPA) with dry-run. Done: a JSON rule language (`internal/policy`: conditions on amount, currency, livemode and metadata; operators eq, neq, gt, gte, lt, lte, in, not_in; actions flag and block), validated at load (every problem is reported; unknown keys are refused), loaded from `POLICY_FILE`; `POST /v1/policy/evaluate` is the dry run with a per-rule trace; a block refuses the payment with 402 `payment_blocked` before anything is written. Open: CEL or OPA (the rule language is deliberately small and is not CEL); flags are logged but not stored on the payment; routing rules need more than one adapter
 - [ ] Multi-adapter smart routing / failover (after `bank_sponsor` / `direct_acquiring` adapters exist)
 
 ## 10. Deferred: `backend/` features to port into core later

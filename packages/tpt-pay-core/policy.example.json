@@ -1,0 +1,29 @@
+{
+  "rules": [
+    {
+      "id": "large_payment_review",
+      "description": "Flag card payments above 500.00 for manual review (amounts are in minor units).",
+      "when": [
+        { "field": "amount", "op": "gt", "value": 50000 }
+      ],
+      "action": "flag"
+    },
+    {
+      "id": "unsupported_currency_block",
+      "description": "Block live payments in a currency this merchant does not accept.",
+      "when": [
+        { "field": "livemode", "op": "eq", "value": true },
+        { "field": "currency", "op": "not_in", "value": ["usd", "eur", "gbp"] }
+      ],
+      "action": "block"
+    },
+    {
+      "id": "very_large_block",
+      "description": "Block any payment above 100000.00.",
+      "when": [
+        { "field": "amount", "op": "gt", "value": 10000000 }
+      ],
+      "action": "block"
+    }
+  ]
+}

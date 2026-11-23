@@ -69,6 +69,8 @@ func NewRouter(
 		r.With(secret, audit.Record("payment_intent.create", "payment_intent")).Post("/payment_intents", pi.Create)
 		// Listing exposes every intent of the merchant, so it needs a secret key.
 		r.With(secret).Get("/payment_intents", handlers.NewIntentList(paymentSvc).List)
+		// Dry run of the merchant rules: shows what each rule would do, without creating anything.
+		r.With(secret).Post("/policy/evaluate", handlers.NewPolicyEvaluator(paymentSvc).Evaluate)
 		r.Get("/payment_intents/{id}", pi.Retrieve)
 		r.With(audit.Record("payment_intent.confirm", "payment_intent")).Post("/payment_intents/{id}/confirm", pi.Confirm)
 		r.With(secret, audit.Record("payment_intent.capture", "payment_intent")).Post("/payment_intents/{id}/capture", pi.Capture)

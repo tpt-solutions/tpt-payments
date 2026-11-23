@@ -1152,6 +1152,119 @@
           }
         }
       }
+    },
+    "/policy/evaluate": {
+      "post": {
+        "summary": "Dry-run the merchant rules",
+        "description": "Shows what each merchant rule would do for a payment with this amount, currency and metadata, in the caller's mode. Nothing is created or recorded. A payment whose create call matches a blocking rule is refused with 402 and code payment_blocked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "currency"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "integer",
+                    "description": "Amount in the currency's smallest unit."
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The decision and one entry per rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "object": {
+                      "type": "string",
+                      "enum": [
+                        "policy_evaluation"
+                      ]
+                    },
+                    "decision": {
+                      "type": "string",
+                      "enum": [
+                        "allow",
+                        "flag",
+                        "block"
+                      ]
+                    },
+                    "rules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "rule_id": {
+                            "type": "string"
+                          },
+                          "matched": {
+                            "type": "boolean"
+                          },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "flag",
+                              "block"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A publishable key was used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "parameters": {
