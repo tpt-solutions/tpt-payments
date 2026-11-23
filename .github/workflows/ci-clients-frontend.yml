@@ -1,0 +1,145 @@
+name: CI — frontend, SDKs, Helm, compose, OpenAPI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - "frontend/**"
+      - "packages/tpt-pay/**"
+      - "packages/python/**"
+      - "packages/tpt-pay-core/api/openapi.json"
+      - "deploy/helm/**"
+      - "docker-compose*.yml"
+      - ".github/workflows/ci-clients-frontend.yml"
+  pull_request:
+
+jobs:
+  frontend:
+    name: Frontend (type-check and build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install (React 19 with Next 14 needs legacy peer resolution)
+        run: npm ci --legacy-peer-deps
+      - name: Type-check
+        run: npx tsc --noEmit
+      - name: Build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
+
+  js-sdk:
+    name: JavaScript SDK (@tpt/pay)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/tpt-pay
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: packages/tpt-pay/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  python-sdk:
+    name: Python SDK (tpt-payments)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/python
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m pytest -q
+
+  helm:
+    name: Helm (lint and render)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.18.4
+      - name: Fetch chart dependencies
+        run: helm dependency update deploy/helm
+      - name: Lint
+        run: helm lint deploy/helm --set database.password=ci-only-password
+      - name: Render with the bundled dependencies and with an existing Secret
+        run: |
+          helm template tpt deploy/helm --set database.password=ci-only-password > /tmp/rendered-password.yaml
+          helm template tpt deploy/helm --set database.existingSecret=tpt-db > /tmp/rendered-existing.yaml
+          grep -q "kind: Deployment" /tmp/rendered-password.yaml
+          grep -q "secretKeyRef" /tmp/rendered-existing.yaml
+      - name: The chart must refuse to render without a database password or Secret
+        run: |
+          if helm template tpt deploy/helm > /dev/null 2>&1; then
+            echo "chart rendered without a database password"; exit 1
+          fi
+
+  compose:
+    name: Compose files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate the development stack
+        run: docker compose -f docker-compose.yml config --quiet
+      - name: Validate the test stack
+        run: docker compose -f docker-compose.test.yml config --quiet
+      - name: Monitoring requires GRAFANA_ADMIN_PASSWORD
+        run: |
+          if docker compose -f deploy/monitoring/docker-compose.monitoring.yml config --quiet 2>/dev/null; then
+            echo "monitoring compose rendered without GRAFANA_ADMIN_PASSWORD"; exit 1
+          fi
+          GRAFANA_ADMIN_PASSWORD=ci-only docker compose -f deploy/monitoring/docker-compose.monitoring.yml config --quiet
+
+  openapi:
+    name: OpenAPI document
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: The served spec must be valid JSON with the expected version
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          spec = json.load(open("packages/tpt-pay-core/api/openapi.json"))
+          assert spec.get("openapi", "").startswith("3."), "not an OpenAPI 3 document"
+          assert spec["info"]["version"], "info.version is empty"
+          bad = [(p, m) for p, ops in spec["paths"].items() for m, op in ops.items() if "422" in op.get("responses", {})]
+          if bad:
+              print("422 responses remain (invalid parameters are 400):", bad)
+              sys.exit(1)
+          print("OpenAPI", spec["openapi"], "version", spec["info"]["version"], "paths", len(spec["paths"]))
+          PY
+
+  required:
+    name: Required checks
+    if: always()
+    needs: [frontend, js-sdk, python-sdk, helm, compose, openapi]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every job succeeded
+        run: |
+          [ "${{ needs.frontend.result }}" = "success" ] || { echo "frontend did not succeed"; exit 1; }
+          [ "${{ needs.js-sdk.result }}" = "success" ] || { echo "js-sdk did not succeed"; exit 1; }
+          [ "${{ needs.python-sdk.result }}" = "success" ] || { echo "python-sdk did not succeed"; exit 1; }
+          [ "${{ needs.helm.result }}" = "success" ] || { echo "helm did not succeed"; exit 1; }
+          [ "${{ needs.compose.result }}" = "success" ] || { echo "compose did not succeed"; exit 1; }
+          [ "${{ needs.openapi.result }}" = "success" ] || { echo "openapi did not succeed"; exit 1; }
+          echo "all required checks passed"
