@@ -41,8 +41,8 @@ type DatabaseConfig struct {
 	MinConns int32
 }
 
-// NATSConfig is provisioned for the planned NATS JetStream transport. Nothing uses it yet,
-// so it is optional.
+// NATSConfig selects the JetStream webhook transport. When URL is empty, deliveries are polled
+// from the database instead (see internal/webhook/jetstream.go).
 type NATSConfig struct {
 	URL       string
 	CredsFile string

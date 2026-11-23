@@ -102,6 +102,9 @@ redis:
 # not built yet, so this can stay disabled.
 nats:
   enabled: false
+  # URL of an existing NATS server with JetStream, used when the bundled NATS is off. Empty
+  # means webhook deliveries are polled from the database.
+  url: ""
   config:
     jetstream:
       enabled: true

@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/redis/go-redis/v9"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/api"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter/sandbox"
@@ -120,7 +122,14 @@ func run() error {
 		Window:      cfg.Webhook.RetryWindow,
 		BatchSize:   cfg.Webhook.WorkerConcurrency * 2,
 	})
-	go deliveries.Run(ctx, 2*time.Second)
+	if cfg.NATS.URL != "" {
+		if err := startJetStreamDelivery(ctx, cfg, deliveries); err != nil {
+			return err
+		}
+	} else {
+		slog.Warn("NATS_URL is not set; webhook deliveries are polled from the database")
+		go deliveries.Run(ctx, 2*time.Second)
+	}
 
 	srv := &http.Server{
 		Addr:         cfg.Server.Addr,
@@ -211,4 +220,40 @@ func buildRateLimiter(cfg config.RateLimitConfig, redisURL string) (ratelimit.Li
 	}
 	slog.Info("rate limiting on", "backend", "redis", "per_minute", cfg.PerMinute)
 	return l, nil
+}
+
+// startJetStreamDelivery connects to NATS, makes sure the webhook stream exists, and starts the
+// relay (outbox to stream) and the consumer (stream to HTTP). Both stop when ctx is cancelled.
+func startJetStreamDelivery(ctx context.Context, cfg *config.Config, deliveries *webhook.Worker) error {
+	opts := []nats.Option{nats.Name("tpt-pay-core"), nats.MaxReconnects(-1)}
+	if cfg.NATS.CredsFile != "" {
+		opts = append(opts, nats.UserCredentials(cfg.NATS.CredsFile))
+	}
+	nc, err := nats.Connect(cfg.NATS.URL, opts...)
+	if err != nil {
+		return fmt.Errorf("connect to NATS: %w", err)
+	}
+	go func() {
+		<-ctx.Done()
+		nc.Drain() //nolint:errcheck // shutting down
+	}()
+
+	js, err := jetstream.New(nc)
+	if err != nil {
+		return fmt.Errorf("create JetStream context: %w", err)
+	}
+	if err := webhook.EnsureStream(ctx, js, cfg.Webhook.MaxAttempts); err != nil {
+		return err
+	}
+
+	relay := webhook.NewRelay(deliveries, js, 100)
+	go relay.Run(ctx, time.Second)
+
+	consumer, err := webhook.NewConsumer(ctx, deliveries, js, cfg.Webhook.WorkerConcurrency*2)
+	if err != nil {
+		return err
+	}
+	go consumer.Run(ctx)
+	slog.Info("webhook delivery uses JetStream", "stream", webhook.StreamName)
+	return nil
 }

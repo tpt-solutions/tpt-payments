@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
@@ -24,6 +25,10 @@ const leaseDuration = 2 * time.Minute
 
 // Worker sends queued webhook deliveries, signing each with its endpoint's secret and
 // retrying failures on the RetrySchedule. Several workers may run concurrently.
+//
+// It runs in one of two modes. Poll mode (RunOnce / Run) claims due rows from Postgres.
+// JetStream mode (Relay and Consumer, see jetstream.go) reads delivery IDs from a stream and
+// calls Attempt for each one. Both modes record results in the same rows.
 type Worker struct {
 	pool        *pgxpool.Pool
 	box         *secretbox.Box
@@ -40,6 +45,15 @@ type WorkerConfig struct {
 	MaxAttempts int           // default 15
 	Window      time.Duration // default 72h: deliveries older than this stop retrying
 	BatchSize   int           // default 20
+}
+
+// Outcome is what a worker decided after one attempt.
+type Outcome struct {
+	// Done means the delivery needs no further attempts: it was delivered, it failed for good,
+	// or there is no pending row to deliver.
+	Done bool
+	// RetryAfter is how long to wait before the next attempt. It is set when Done is false.
+	RetryAfter time.Duration
 }
 
 // NewWorker builds a Worker. Live endpoints are dialled with the strict address policy;
@@ -126,6 +140,53 @@ func (w *Worker) Run(ctx context.Context, interval time.Duration) {
 	}
 }
 
+// Attempt makes one delivery attempt for a pending delivery ID, records the result, and reports
+// what to do next. It is the JetStream consumer's entry point. A delivery that is no longer
+// pending (already delivered or failed, or deleted) is Done, so its message is acknowledged.
+func (w *Worker) Attempt(ctx context.Context, id string) (Outcome, error) {
+	d, err := w.load(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Outcome{Done: true}, nil
+	}
+	if err != nil {
+		return Outcome{}, err
+	}
+	return w.attempt(ctx, d), nil
+}
+
+// Unpublished returns up to limit pending delivery IDs that have not been put on the stream yet,
+// oldest first.
+func (w *Worker) Unpublished(ctx context.Context, limit int) ([]string, error) {
+	rows, err := w.pool.Query(ctx, `
+		SELECT id::text FROM webhook_deliveries
+		WHERE published_at IS NULL
+		ORDER BY created_at
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list unpublished deliveries: %w", err)
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan delivery id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// MarkPublished records that a delivery is on the stream.
+func (w *Worker) MarkPublished(ctx context.Context, id string) error {
+	if _, err := w.pool.Exec(ctx,
+		`UPDATE webhook_deliveries SET published_at = NOW() WHERE id = $1 AND published_at IS NULL`, id); err != nil {
+		return fmt.Errorf("mark delivery published: %w", err)
+	}
+	return nil
+}
+
 type claimedDelivery struct {
 	id              string
 	payload         string
@@ -136,6 +197,27 @@ type claimedDelivery struct {
 	secretCiphertxt string
 	livemode        bool
 	endpointStatus  string
+}
+
+// deliveryColumns is the projection shared by claim and load.
+const deliveryColumns = `d.id::text, d.payload, d.event_id, d.attempt_count, d.created_at,
+		we.url, we.secret_ciphertext, d.livemode, we.status`
+
+// load reads one pending delivery. It returns pgx.ErrNoRows when the delivery is missing or
+// already finished.
+func (w *Worker) load(ctx context.Context, id string) (claimedDelivery, error) {
+	var d claimedDelivery
+	err := w.pool.QueryRow(ctx, `
+		SELECT `+deliveryColumns+`
+		FROM webhook_deliveries d
+		JOIN webhook_endpoints we ON we.id = d.endpoint_id
+		WHERE d.id = $1::uuid AND d.delivered_at IS NULL AND d.failed_at IS NULL
+	`, id).Scan(&d.id, &d.payload, &d.eventID, &d.attemptCount, &d.createdAt,
+		&d.url, &d.secretCiphertxt, &d.livemode, &d.endpointStatus)
+	if err != nil {
+		return claimedDelivery{}, err
+	}
+	return d, nil
 }
 
 // claim leases due deliveries in one statement. FOR UPDATE SKIP LOCKED lets concurrent
@@ -155,8 +237,7 @@ func (w *Worker) claim(ctx context.Context) ([]claimedDelivery, error) {
 		SET next_attempt_at = NOW() + $2::interval
 		FROM due, webhook_endpoints we
 		WHERE d.id = due.id AND we.id = d.endpoint_id
-		RETURNING d.id::text, d.payload, d.event_id, d.attempt_count, d.created_at,
-		          we.url, we.secret_ciphertext, d.livemode, we.status
+		RETURNING `+deliveryColumns+`
 	`, w.batchSize, fmt.Sprintf("%d seconds", int(leaseDuration.Seconds())))
 	if err != nil {
 		return nil, fmt.Errorf("claim deliveries: %w", err)
@@ -175,24 +256,24 @@ func (w *Worker) claim(ctx context.Context) ([]claimedDelivery, error) {
 	return out, rows.Err()
 }
 
-func (w *Worker) attempt(ctx context.Context, d claimedDelivery) {
+func (w *Worker) attempt(ctx context.Context, d claimedDelivery) Outcome {
 	now := w.now()
 	attempt := d.attemptCount + 1
 
 	if d.endpointStatus != "enabled" {
 		w.finish(ctx, d, attempt, now, 0, "endpoint is disabled", true)
-		return
+		return Outcome{Done: true}
 	}
 	secretBytes, err := w.box.Open(d.secretCiphertxt)
 	if err != nil {
 		w.finish(ctx, d, attempt, now, 0, "signing secret cannot be decrypted; recreate the endpoint", true)
-		return
+		return Outcome{Done: true}
 	}
 
 	status, sendErr := w.send(ctx, d, string(secretBytes), now)
 	if sendErr == nil && status >= 200 && status < 300 {
 		w.markDelivered(ctx, d.id, attempt, now, status)
-		return
+		return Outcome{Done: true}
 	}
 
 	reason := fmt.Sprintf("HTTP %d", status)
@@ -201,6 +282,10 @@ func (w *Worker) attempt(ctx context.Context, d claimedDelivery) {
 	}
 	exhausted := attempt >= w.maxAttempts || now.Sub(d.createdAt) > w.window
 	w.finish(ctx, d, attempt, now, status, reason, exhausted)
+	if exhausted {
+		return Outcome{Done: true}
+	}
+	return Outcome{RetryAfter: RetrySchedule(attempt + 1)}
 }
 
 func (w *Worker) send(ctx context.Context, d claimedDelivery, secret string, now time.Time) (int, error) {

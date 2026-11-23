@@ -48,8 +48,14 @@ spec:
                   key: DATABASE_URL
             - name: REDIS_URL
               value: redis://{{ include "tpt-payments.redis.fullname" . }}:6379
+            {{- /* JetStream delivery is on when a NATS URL is set: the bundled NATS, or an external one. */}}
+            {{- if .Values.nats.enabled }}
             - name: NATS_URL
               value: nats://{{ include "tpt-payments.nats.fullname" . }}:4222
+            {{- else if .Values.nats.url }}
+            - name: NATS_URL
+              value: {{ .Values.nats.url | quote }}
+            {{- end }}
             {{- range $key, $value := .Values.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
