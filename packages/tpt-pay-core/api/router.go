@@ -67,6 +67,8 @@ func NewRouter(
 		// Payment intents
 		pi := handlers.NewPaymentIntents(paymentSvc)
 		r.With(secret, audit.Record("payment_intent.create", "payment_intent")).Post("/payment_intents", pi.Create)
+		// Listing exposes every intent of the merchant, so it needs a secret key.
+		r.With(secret).Get("/payment_intents", handlers.NewIntentList(paymentSvc).List)
 		r.Get("/payment_intents/{id}", pi.Retrieve)
 		r.With(audit.Record("payment_intent.confirm", "payment_intent")).Post("/payment_intents/{id}/confirm", pi.Confirm)
 		r.With(secret, audit.Record("payment_intent.capture", "payment_intent")).Post("/payment_intents/{id}/capture", pi.Capture)
