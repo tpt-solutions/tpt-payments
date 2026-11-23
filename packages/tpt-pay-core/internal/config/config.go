@@ -53,6 +53,12 @@ type VaultConfig struct {
 	Token    string
 	RoleID   string
 	SecretID string
+	// TransitKey and TransitMount name the Transit key that wraps the webhook secret key.
+	TransitKey   string
+	TransitMount string
+	// WrappedWebhookKey is the Transit ciphertext of the base64 webhook secret key. When set, the
+	// plaintext key is never read from the environment.
+	WrappedWebhookKey string
 }
 
 // RateLimitConfig controls per-key request limits. See internal/middleware/ratelimit.go.
@@ -125,6 +131,13 @@ func Load() (*Config, error) {
 		Token:    os.Getenv("VAULT_TOKEN"),
 		RoleID:   os.Getenv("VAULT_ROLE_ID"),
 		SecretID: os.Getenv("VAULT_SECRET_ID"),
+
+		TransitKey:        os.Getenv("VAULT_TRANSIT_KEY"),
+		TransitMount:      getEnv("VAULT_TRANSIT_MOUNT", "transit"),
+		WrappedWebhookKey: os.Getenv("VAULT_WEBHOOK_KEY_CIPHERTEXT"),
+	}
+	if cfg.Vault.WrappedWebhookKey != "" && os.Getenv("WEBHOOK_SECRET_KEY") != "" {
+		errs = append(errs, errors.New("set either WEBHOOK_SECRET_KEY or VAULT_WEBHOOK_KEY_CIPHERTEXT, not both"))
 	}
 
 	cfg.Redis = RedisConfig{URL: getEnv("REDIS_URL", "redis://localhost:6379/0")}
@@ -182,6 +195,9 @@ func ValidateProduction(cfg *Config) error {
 	}
 	if cfg.Vault.Token == devVaultToken {
 		problems = append(problems, "VAULT_TOKEN is the development root token")
+	}
+	if cfg.Vault.WrappedWebhookKey == "" {
+		problems = append(problems, "VAULT_WEBHOOK_KEY_CIPHERTEXT is required in production: the webhook key must be wrapped by Vault Transit")
 	}
 	if len(problems) == 0 {
 		return nil

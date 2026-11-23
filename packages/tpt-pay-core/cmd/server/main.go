@@ -26,6 +26,7 @@ import (
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ratelimit"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/vault"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/webhook"
 )
 
@@ -104,9 +105,9 @@ func run() error {
 	middleware.StartIdempotencyCleanup(ctx, pool, time.Hour, 24*time.Hour)
 
 	// ── HTTP server ───────────────────────────────────────────────────────────
-	secrets, err := secretbox.New(cfg.Webhook.SecretKey)
+	secrets, err := loadSecretBox(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("WEBHOOK_SECRET_KEY: %w (generate with: openssl rand -base64 32)", err)
+		return err
 	}
 
 	limiter, err := buildRateLimiter(cfg.RateLimit, cfg.Redis.URL)
@@ -256,4 +257,31 @@ func startJetStreamDelivery(ctx context.Context, cfg *config.Config, deliveries 
 	go consumer.Run(ctx)
 	slog.Info("webhook delivery uses JetStream", "stream", webhook.StreamName)
 	return nil
+}
+
+// loadSecretBox builds the box that encrypts webhook signing secrets. With a Vault Transit
+// ciphertext configured, the base64 key is unwrapped by Vault at startup and never read from the
+// environment in plaintext. Otherwise WEBHOOK_SECRET_KEY is used (development only).
+func loadSecretBox(ctx context.Context, cfg *config.Config) (*secretbox.Box, error) {
+	if cfg.Vault.WrappedWebhookKey == "" {
+		box, err := secretbox.New(cfg.Webhook.SecretKey)
+		if err != nil {
+			return nil, fmt.Errorf("WEBHOOK_SECRET_KEY: %w (generate with: openssl rand -base64 32)", err)
+		}
+		return box, nil
+	}
+	client, err := vault.NewTransit(cfg.Vault.Addr, cfg.Vault.Token, cfg.Vault.TransitMount, cfg.Vault.TransitKey)
+	if err != nil {
+		return nil, fmt.Errorf("VAULT settings: %w", err)
+	}
+	keyB64, err := client.Decrypt(ctx, cfg.Vault.WrappedWebhookKey)
+	if err != nil {
+		return nil, fmt.Errorf("unwrap webhook key: %w", err)
+	}
+	box, err := secretbox.New(string(keyB64))
+	if err != nil {
+		return nil, fmt.Errorf("unwrapped webhook key is invalid: %w", err)
+	}
+	slog.Info("webhook secret key unwrapped by Vault Transit", "key", cfg.Vault.TransitKey)
+	return box, nil
 }
