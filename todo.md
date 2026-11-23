@@ -82,7 +82,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [~] Pin `arigaio/atlas:latest`, Helm `image.tag: latest`, other floating tags. Done: Helm tag defaults to appVersion; `air` in `Dockerfile.dev` pinned to v1.67.3. Atlas is pinned to `arigaio/atlas:1.4.0` (Done)
 - [ ] Release: release-please / conventional commits, GHCR push, cosign, SBOM, SLSA provenance, SDK + Helm publish, `-race`, fix `git describe` on first tag
 - [x] Fix `ci-credit-chain.yml` simulation step (no tests exist, `continue-on-error`). Done: the step is removed, and the invariant check fails if no `TestInvariant` test passes (the old pattern matched nothing and passed)
-- [ ] Stale / labeler / PR size bots; markdown lint
+- [~] Stale / labeler / PR size bots; markdown lint. Done: coverage is measured and summarized in the job summary, and uploaded as an artifact, for both Go modules (core and credit chain; coverage is measured, not yet gated). Open: stale, labeler, PR size, markdown lint
 
 ## 6. Security (outside core)
 - [~] Credit chain identity bridge: remove hard-coded JWT fallback secret (`packages/tpt-credit-chain/services/identity/identity_bridge.go:165`); require `exp`, add replay protection; prefer asymmetric keys. Done: fails closed without a secret, requires `exp` and `jti`, rejects reused `jti` (`identity_bridge_test.go`). Open: asymmetric keys
