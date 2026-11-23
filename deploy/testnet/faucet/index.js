@@ -12,6 +12,7 @@ const { DirectSecp256k1HdWallet } = require('@cosmjs/proto-signing');
 const { GasPrice } = require('@cosmjs/stargate');
 const { stringToPath } = require('@cosmjs/crypto');
 const { fromHex, toHex } = require('@cosmjs/encoding');
+const { isAccountAddress } = require('./bech32');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -112,11 +113,11 @@ app.get('/', (req, res) => {
 app.post('/api/claim', getRateLimitMiddleware(), async (req, res) => {
   const { address } = req.body;
 
-  // Validate address format (Cosmos bech32)
-  if (!address || !address.startsWith('cosmos1') || address.length < 40 || address.length > 60) {
+  // Validate the bech32 checksum and payload length before any chain call.
+  if (!isAccountAddress(address, 'cosmos')) {
     return res.status(400).json({
       error: 'Invalid address',
-      message: 'Please provide a valid Cosmos address starting with "cosmos1".',
+      message: 'Please provide a valid Cosmos account address starting with "cosmos1".',
     });
   }
 
@@ -178,10 +179,12 @@ app.post('/api/claim', getRateLimitMiddleware(), async (req, res) => {
       address,
     });
   } catch (err) {
-    console.error(`Faucet error for ${address}:`, err.message);
+    // Log the detail for operators. Do not return it: RPC and SDK errors can name hosts,
+    // sequence numbers, and internal state.
+    console.error(`Faucet error for ${address}:`, err && err.message);
     res.status(500).json({
       error: 'Transaction failed',
-      message: err.message,
+      message: 'The faucet could not send tokens. Try again later.',
     });
   }
 });
