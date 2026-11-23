@@ -77,7 +77,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [ ] Generate SDKs from OpenAPI (JS, Python, Go, Java, Ruby, PHP, .NET); spec lint + breaking-change check (oasdiff); publish to npm / PyPI
 - [ ] Docs site (Docusaurus / Mintlify) with integrator docs, OpenAPI reference, examples; link check in CI
 - [ ] Production distroless multi-arch Docker image; `docker compose --profile monitoring`; publish Helm chart; one-click deploy buttons
-- [ ] Devcontainer / Codespaces config; make `scripts/setup-dev.sh` discoverable from README
+- [x] Devcontainer / Codespaces config; make `scripts/setup-dev.sh` discoverable from README. Done: `.devcontainer/devcontainer.json` (Go 1.26, Node 22, Python 3.12, Docker outside of Docker; runs the setup script on create). Not opened in a container here, so not verified
 
 ## 5. Automation / CI/CD
 

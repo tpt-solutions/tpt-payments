@@ -1,0 +1,28 @@
+{
+  "name": "TPT Pay",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": { "version": "1.26" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {}
+  },
+  "forwardPorts": [8080, 3000, 4242, 26660],
+  "portsAttributes": {
+    "8080": { "label": "tpt-pay-core API" },
+    "3000": { "label": "Merchant dashboard" },
+    "4242": { "label": "Webhook receiver example" }
+  },
+  "postCreateCommand": "bash scripts/setup-dev.sh || true",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-python.python",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  }
+}

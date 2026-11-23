@@ -129,6 +129,10 @@ Prerequisites: [Go 1.23+](https://go.dev/dl/), [Node.js 20+](https://nodejs.org/
 [Atlas](https://atlasgo.io/getting-started) for migrations. `scripts/setup-dev.sh` checks for and
 installs most of these.
 
+No local toolchain? Open the repository in a dev container (VS Code "Reopen in Container", or
+GitHub Codespaces). `.devcontainer/devcontainer.json` installs Go, Node and Python, and runs
+`scripts/setup-dev.sh` once the container is created.
+
 ```bash
 make dev        # full stack with hot reload (Redis, NATS and Vault are provisioned, not yet used by core)
 make migrate    # apply migrations with Atlas
