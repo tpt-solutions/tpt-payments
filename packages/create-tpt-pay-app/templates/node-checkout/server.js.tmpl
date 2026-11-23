@@ -1,0 +1,111 @@
+// {{name}}: a checkout endpoint and a verified webhook receiver for TPT Pay.
+//
+//   POST /api/checkout   {"amount": 2000, "currency": "usd"}  -> creates a payment intent
+//   POST /webhook        signed deliveries from TPT Pay        -> verified, then handled
+//
+// Uses only Node's http module plus @tpt/pay.
+
+'use strict';
+
+const http = require('node:http');
+const { TPTPay } = require('@tpt/pay');
+const { constructEvent, SignatureVerificationError } = require('@tpt/pay/webhooks');
+
+const apiKey = process.env.TPT_SECRET_KEY;
+const webhookSecret = process.env.TPT_WEBHOOK_SECRET;
+const port = Number(process.env.PORT || 3000);
+
+if (!apiKey || !webhookSecret) {
+  console.error('set TPT_SECRET_KEY and TPT_WEBHOOK_SECRET (see .env.example)');
+  process.exit(1);
+}
+
+const tpt = new TPTPay({ apiKey });
+const MAX_BODY = 1024 * 1024;
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY) {
+        reject(new Error('body too large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function send(res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
+}
+
+async function handleCheckout(req, res) {
+  let input;
+  try {
+    input = JSON.parse((await readBody(req)).toString('utf8') || '{}');
+  } catch {
+    return send(res, 400, { error: 'body must be JSON' });
+  }
+  const amount = Number(input.amount);
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return send(res, 400, { error: 'amount must be a positive integer in minor units' });
+  }
+  try {
+    const intent = await tpt.paymentIntents.create({
+      amount,
+      currency: input.currency || 'usd',
+      capture_method: 'automatic',
+      // Your order reference, so the webhook can be matched back to the order.
+      metadata: { order_id: String(input.order_id || '') },
+    });
+    return send(res, 200, { id: intent.id, status: intent.status });
+  } catch (err) {
+    console.error('create payment intent failed:', err.message);
+    return send(res, 502, { error: 'payment could not be started' });
+  }
+}
+
+async function handleWebhook(req, res) {
+  let raw;
+  try {
+    raw = await readBody(req);
+  } catch {
+    return send(res, 413, { error: 'body too large' });
+  }
+  let event;
+  try {
+    event = constructEvent(raw, req.headers['tpt-signature'] || '', webhookSecret);
+  } catch (err) {
+    if (err instanceof SignatureVerificationError) return send(res, 400, { error: 'signature check failed' });
+    throw err;
+  }
+  try {
+    // Handle the event here: mark the order paid on payment_intent.succeeded, and so on.
+    console.log('event', event.type, event.id);
+  } catch (err) {
+    // A non-2xx response asks TPT Pay to send the event again.
+    console.error('webhook handler failed for', event.id, err);
+    return send(res, 500, { error: 'handler failed' });
+  }
+  return send(res, 200, { received: true });
+}
+
+const server = http.createServer(async (req, res) => {
+  try {
+    if (req.method === 'POST' && req.url === '/api/checkout') return await handleCheckout(req, res);
+    if (req.method === 'POST' && req.url === '/webhook') return await handleWebhook(req, res);
+    return send(res, 404, { error: 'not found' });
+  } catch (err) {
+    console.error('unhandled error:', err);
+    return send(res, 500, { error: 'internal error' });
+  }
+});
+
+server.listen(port, () => console.log(`{{name}} listening on http://localhost:${port}`));

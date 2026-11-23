@@ -1,0 +1,21 @@
+{
+  "name": "create-tpt-pay-app",
+  "version": "0.1.0",
+  "description": "Scaffold a TPT Pay starter project (checkout and webhook receiver in Node)",
+  "license": "MIT OR Apache-2.0",
+  "private": true,
+  "bin": {
+    "create-tpt-pay-app": "./bin/create-tpt-pay-app.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "templates"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

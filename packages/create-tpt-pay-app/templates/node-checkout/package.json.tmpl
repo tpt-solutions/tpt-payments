@@ -1,0 +1,17 @@
+{
+  "name": "{{name}}",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TPT Pay checkout and webhook receiver",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@tpt/pay": "^0.1.0"
+  }
+}
