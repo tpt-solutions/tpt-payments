@@ -186,6 +186,9 @@ type App struct {
 	// Metrics collector (Prometheus).
 	Metrics       *MetricsCollector
 	metricsServer *http.Server
+
+	// halted is set when an invariant breaks. A halted chain produces no more blocks.
+	halted error
 }
 
 // TxLogEntry records a processed transaction.
@@ -427,14 +430,20 @@ func (app *App) Start() error {
 			}
 
 			// Run issuance BeginBlock (process payouts).
-			issuedEvents := app.IssuanceKeeper.BeginBlock(height, app.BurnKeeper.IsBurnBlock)
+			issuedEvents := app.IssuanceKeeper.BeginBlock(height)
 
 			// Run burn BeginBlock (check if annual burn).
 			burnSummary := app.BurnKeeper.BeginBlock(height)
 
-			// Check invariants every block.
+			// Check invariants every block. A broken invariant halts the chain: no further
+			// blocks are produced and Start returns an error, so the process exits non-zero.
 			if broken, msg := app.CheckInvariants(); broken {
-				fmt.Printf("INVARIANT BROKEN at block %d: %s\n", height, msg)
+				haltErr := fmt.Errorf("invariant broken at block %d: %s", height, msg)
+				app.halted = haltErr
+				app.mu.Unlock()
+				fmt.Printf("HALTING: %v\n", haltErr)
+				app.shutdownMetricsServer()
+				return haltErr
 			}
 
 			// Update Prometheus metrics.
@@ -518,14 +527,20 @@ func (app *App) metricsSnapshot() map[string]interface{} {
 
 // Stop gracefully stops block production.
 func (app *App) Stop() {
-	if app.metricsServer != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := app.metricsServer.Shutdown(ctx); err != nil {
-			fmt.Printf("Metrics server shutdown error: %v\n", err)
-		}
-	}
+	app.shutdownMetricsServer()
 	close(app.stopCh)
+}
+
+// shutdownMetricsServer stops the Prometheus endpoint if it is running.
+func (app *App) shutdownMetricsServer() {
+	if app.metricsServer == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := app.metricsServer.Shutdown(ctx); err != nil {
+		fmt.Printf("Metrics server shutdown error: %v\n", err)
+	}
 }
 
 // CheckInvariants runs all module invariants and returns broken status.

@@ -62,6 +62,17 @@ func NewKeeperWithEvents(events EventBus, genesisHeight int64) *Keeper {
 	}
 }
 
+// validateAccountFields checks the address and identity UUID format of an account.
+func validateAccountFields(address, identityUUID string) error {
+	if len(address) > MaxAddressLen || !bech32Regex.MatchString(address) {
+		return fmt.Errorf("address %q is not a valid bech32 address", address)
+	}
+	if !hex64Regex.MatchString(identityUUID) {
+		return fmt.Errorf("identity UUID must be a 64-character lowercase hex SHA-256 digest")
+	}
+	return nil
+}
+
 // findAccountIndex returns the index of the account with the given address,
 // or -1 if not found.
 func (k *Keeper) findAccountIndex(address string) int {
@@ -76,6 +87,12 @@ func (k *Keeper) findAccountIndex(address string) int {
 // RegisterHuman registers a new verified human and schedules their first payout.
 // Returns the HumanRegisteredEvent that was (or would be) emitted.
 func (k *Keeper) RegisterHuman(ctx context.Context, address, identityUUID, tier string, freq PayoutFrequency) (HumanRegisteredEvent, error) {
+	// The keeper enforces the same format rules as MsgRegisterHuman.ValidateBasic, so
+	// callers that skip ValidateBasic cannot store a malformed address or identity.
+	if err := validateAccountFields(address, identityUUID); err != nil {
+		return HumanRegisteredEvent{}, err
+	}
+
 	// Validate identity tier.
 	if !ValidTiers[tier] {
 		return HumanRegisteredEvent{}, fmt.Errorf("identity_tier %q is not valid; must be one of: kyc, biometric, dna", tier)
@@ -144,31 +161,40 @@ func (k *Keeper) ProcessPayouts() []CreditsIssuedEvent {
 	for i := range k.accounts {
 		acct := &k.accounts[i]
 
-		// Calculate blocks until this account's next payout.
-		perYear := PayoutsPerYear(acct.PayoutFrequency)
-		blocksPerPayout := BlocksPerYear / perYear
-		blocksSinceLastPaid := k.blockHeight - acct.LastPaidAt
+		blocksPerPayout := BlocksPerPayout(acct.PayoutFrequency)
 
-		// Only pay if enough blocks have passed since last payout.
-		// This naturally handles missed payout recovery: if blocksSinceLastPaid
-		// is multiple times blocksPerPayout (because the node was down), we
-		// still only pay once, catching up on the next available block.
-		// We don't catch up multiple missed payouts in one block to avoid
-		// supply shock. Instead, the next scheduled payout will be at the
-		// correct offset.
-		if blocksSinceLastPaid < blocksPerPayout {
+		// The payout is due at NextDueAt. Accounts loaded from a genesis file that
+		// carry no NextDueAt fall back to LastPaidAt + one interval.
+		dueAt := acct.NextDueAt
+		if dueAt == 0 {
+			dueAt = acct.LastPaidAt + blocksPerPayout
+		}
+
+		// Only pay once the due height is reached. After an outage, the missed payout
+		// is paid on the first block back, once per block, so there is no supply shock
+		// from catching up several payouts in one block.
+		if k.blockHeight < dueAt {
 			continue
 		}
 
-		// Calculate payout amount, capped by remaining annual allocation.
+		// Calculate payout amount, capped by the remaining annual allocation and by
+		// the MaxBalanceUcredit cap on the account balance.
 		payoutAmount := PayoutAmount(acct.PayoutFrequency)
 		remaining := math.NewInt(AnnualAllocationUcredit).Sub(acct.YearCreditsReceived)
-
 		if remaining.IsNegative() || remaining.IsZero() {
 			continue
 		}
 		if payoutAmount.GT(remaining) {
 			payoutAmount = remaining
+		}
+		balanceRoom := math.NewInt(MaxBalanceUcredit).Sub(acct.Balance)
+		if balanceRoom.IsNegative() || balanceRoom.IsZero() {
+			// The balance is at the cap. The payout stays due and is retried on later
+			// blocks, so nothing is minted above the cap.
+			continue
+		}
+		if payoutAmount.GT(balanceRoom) {
+			payoutAmount = balanceRoom
 		}
 
 		// Apply the payout.
@@ -197,30 +223,25 @@ func (k *Keeper) ProcessPayouts() []CreditsIssuedEvent {
 }
 
 // BeginBlock is called at the start of each block.
-// It processes payouts and advances the year if a burn block is reached.
 // Order:
 //  1. Process payouts using the current year (before year rollover).
-//  2. Check if we've crossed into a new year. If so, reset year credits
-//     (the burn module handles the actual burn; we just reset counters).
-//  3. Advance currentYear for the next block.
-func (k *Keeper) BeginBlock(height int64, burnBlockFn func(int64) bool) []CreditsIssuedEvent {
+//  2. If the block starts a new year, reset every account's year counters and advance
+//     currentYear. The reset does not depend on the burn running on this exact block:
+//     if the node was down at the boundary, the year still rolls over here, and the burn
+//     module catches up its own burn. Balances are managed by the burn module.
+func (k *Keeper) BeginBlock(height int64) []CreditsIssuedEvent {
 	k.blockHeight = height
 
 	// Process payouts using the current (pre-advance) year.
 	events := k.ProcessPayouts()
 
-	// Check if we've crossed into a new year.
 	if k.genesisHeight > 0 {
 		elapsedBlocks := k.blockHeight - k.genesisHeight
 		newYear := 1 + (elapsedBlocks / BlocksPerYear)
 		if newYear > k.currentYear {
-			// Check if this is a burn block.
-			if burnBlockFn != nil && burnBlockFn(height) {
-				for i := range k.accounts {
-					k.accounts[i].YearCreditsReceived = math.ZeroInt()
-					k.accounts[i].YearPayoutCount = 0
-					// Balance is managed by the burn module.
-				}
+			for i := range k.accounts {
+				k.accounts[i].YearCreditsReceived = math.ZeroInt()
+				k.accounts[i].YearPayoutCount = 0
 			}
 			k.currentYear = newYear
 		}
@@ -619,6 +640,23 @@ func (k *Keeper) GetTransferCount() int {
 func (k *Keeper) InitializeGenesis(ctx context.Context, state *GenesisState) error {
 	if state == nil {
 		return fmt.Errorf("genesis state cannot be nil")
+	}
+
+	// Validate every genesis account before loading any of them.
+	seenAddr := make(map[string]bool, len(state.HumanAccounts))
+	seenUUID := make(map[string]bool, len(state.HumanAccounts))
+	for i, acct := range state.HumanAccounts {
+		if err := validateAccountFields(acct.Address, acct.IdentityUUID); err != nil {
+			return fmt.Errorf("genesis account %d: %w", i, err)
+		}
+		if seenAddr[acct.Address] {
+			return fmt.Errorf("genesis account %d: duplicate address %q", i, acct.Address)
+		}
+		if seenUUID[acct.IdentityUUID] {
+			return fmt.Errorf("genesis account %d: duplicate identity UUID", i)
+		}
+		seenAddr[acct.Address] = true
+		seenUUID[acct.IdentityUUID] = true
 	}
 
 	// Initialize accounts from genesis state.

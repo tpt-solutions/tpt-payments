@@ -147,31 +147,31 @@ func (k *Keeper) IsBurnBlock(height int64) bool {
 // BeginBlock is called at the start of each block.
 // It checks if the current block is a burn block and executes the burn if so.
 // Returns the annual burn summary if a burn occurred, nil otherwise.
+//
+// Every burn that is due and has not run yet is executed, in year order. Normally that
+// is the single burn on the boundary block. If the node was down across one or more
+// boundaries, the missed burns run on the first block after recovery, so no year is
+// skipped. Returns the summary of the last burn executed, or nil.
 func (k *Keeper) BeginBlock(height int64) *BurnSummary {
 	k.blockHeight = height
 
-	// Update current year.
-	if k.genesisHeight > 0 {
-		elapsed := height - k.genesisHeight
-		newYear := 1 + (elapsed / BlocksPerYear)
-		k.currentYear = newYear
+	if k.genesisHeight <= 0 {
+		return nil
+	}
+	elapsed := height - k.genesisHeight
+	if elapsed <= 0 {
+		k.currentYear = 1
+		return nil
 	}
 
-	// Check if we've crossed into a new year and a burn should occur.
-	// Burn at genesisHeight + n*BlocksPerYear for n = 1, 2, 3, ...
-	if k.genesisHeight > 0 {
-		elapsed := height - k.genesisHeight
-		if elapsed > 0 && elapsed%BlocksPerYear == 0 {
-			year := elapsed / BlocksPerYear
+	completedYears := elapsed / BlocksPerYear
+	k.currentYear = 1 + completedYears
 
-			// Only burn once per year.
-			if year > k.lastBurnYear {
-				return k.executeBurn(year)
-			}
-		}
+	var last *BurnSummary
+	for year := k.lastBurnYear + 1; year <= completedYears; year++ {
+		last = k.executeBurn(year)
 	}
-
-	return nil
+	return last
 }
 
 // executeBurn performs the annual burn and redistribution.
@@ -179,6 +179,9 @@ func (k *Keeper) executeBurn(year int64) *BurnSummary {
 	k.lastBurnYear = year
 
 	accounts := k.issuanceKeeper.GetAccounts()
+	// Process accounts in address order so events and records do not depend on the
+	// order in which accounts were stored.
+	sort.SliceStable(accounts, func(i, j int) bool { return accounts[i].Address < accounts[j].Address })
 	activeHumans := k.issuanceKeeper.GetHumanCount()
 	burnHeight := k.blockHeight
 
@@ -319,6 +322,7 @@ func (k *Keeper) GetBurnRecordsByYear(year int64) []BurnRecord {
 			records = append(records, record)
 		}
 	}
+	sort.Slice(records, func(i, j int) bool { return records[i].Address < records[j].Address })
 	return records
 }
 

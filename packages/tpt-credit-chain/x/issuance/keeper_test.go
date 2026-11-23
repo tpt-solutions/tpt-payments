@@ -57,9 +57,9 @@ func (m *MockEventBus) EmitBatchSend(event issuance.BatchSendEvent) {
 const testAddr1 = "cosmos1qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqf0d5g9"
 const testAddr2 = "cosmos1qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg7f8d8"
 const testAddr3 = "cosmos1qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqp8n9e7"
-const testUUID1 = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b"
-const testUUID2 = "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1bc"
-const testUUID3 = "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1bcd"
+const testUUID1 = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b0"
+const testUUID2 = "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1bc00"
+const testUUID3 = "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1bcd000"
 
 // ── Test: MsgRegisterHuman flow via keeper ─────────────────────────────────────
 
@@ -488,22 +488,19 @@ func TestBeginBlock_YearTransition(t *testing.T) {
 	k := issuance.NewKeeperWithEvents(bus, 1)
 
 	blocksPerYear := issuance.BlocksPerYear
-	burnBlockFn := func(height int64) bool {
-		return (height-1)%blocksPerYear == 0 && height > 1
-	}
 
 	ctx := context.Background()
 	_, err := k.RegisterHuman(ctx, testAddr1, testUUID1, "kyc", issuance.FrequencyMonthly)
 	require.NoError(t, err)
 
-	events := k.BeginBlock(100, burnBlockFn)
+	events := k.BeginBlock(100)
 	assert.Equal(t, int64(1), k.GetCurrentYear(), "still year 1")
 	assert.Len(t, events, 0, "no payout at block 100 (before first monthly boundary)")
 
 	blocksPerMonth := blocksPerYear / 12
 	for month := int64(0); month < 11; month++ {
 		blockHeight := int64(1) + (month+1)*blocksPerMonth
-		events := k.BeginBlock(blockHeight, burnBlockFn)
+		events := k.BeginBlock(blockHeight)
 		assert.Equal(t, int64(1), k.GetCurrentYear(), "still year 1 at month %d", month)
 		assert.Len(t, events, 1, "monthly payout at block %d", blockHeight)
 	}
@@ -517,7 +514,7 @@ func TestBeginBlock_YearTransition(t *testing.T) {
 		acct.YearCreditsReceived, expected11Months)
 
 	yearEndBlock := int64(1) + blocksPerYear
-	events = k.BeginBlock(yearEndBlock, burnBlockFn)
+	events = k.BeginBlock(yearEndBlock)
 	assert.Equal(t, int64(2), k.GetCurrentYear(), "should be year 2 after burn block")
 
 	require.Len(t, events, 1, "12th monthly payout at year-end block")
@@ -534,28 +531,25 @@ func TestBeginBlock_MultipleYears(t *testing.T) {
 	k := issuance.NewKeeperWithEvents(bus, 1)
 
 	blocksPerYear := issuance.BlocksPerYear
-	burnBlockFn := func(height int64) bool {
-		return (height-1)%blocksPerYear == 0 && height > 1
-	}
 
 	ctx := context.Background()
 	_, err := k.RegisterHuman(ctx, testAddr1, testUUID1, "kyc", issuance.FrequencyAnnual)
 	require.NoError(t, err)
 
 	year1End := 1 + blocksPerYear
-	events := k.BeginBlock(year1End, burnBlockFn)
+	events := k.BeginBlock(year1End)
 	require.Len(t, events, 1, "annual payout at year 1 end")
 	assert.Equal(t, int64(1), events[0].Year)
 	assert.Equal(t, int64(1), events[0].PayoutNumber)
 
 	year2End := 1 + 2*blocksPerYear
-	events = k.BeginBlock(year2End, burnBlockFn)
+	events = k.BeginBlock(year2End)
 	require.Len(t, events, 1, "annual payout at year 2 end")
 	assert.Equal(t, int64(2), events[0].Year)
 	assert.Equal(t, int64(1), events[0].PayoutNumber, "payout number resets each year")
 
 	year3End := 1 + 3*blocksPerYear
-	events = k.BeginBlock(year3End, burnBlockFn)
+	events = k.BeginBlock(year3End)
 	require.Len(t, events, 1, "annual payout at year 3 end")
 	assert.Equal(t, int64(3), events[0].Year)
 }
@@ -655,7 +649,7 @@ func TestProcessPayouts_NoAccounts(t *testing.T) {
 
 func TestBeginBlock_NoAccounts(t *testing.T) {
 	k := issuance.NewKeeperWithEvents(NewMockEventBus(), 1)
-	events := k.BeginBlock(1000, nil)
+	events := k.BeginBlock(1000)
 	assert.Empty(t, events)
 }
 
