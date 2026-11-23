@@ -27,7 +27,7 @@ const maxIdempotentBody = 1 << 20 // 1 MB
 //   - The key is claimed with a single atomic INSERT. Only one concurrent request can
 //     claim it; others see the claim and wait or replay.
 //   - The fingerprint covers method, path and body. Reusing a key for a different
-//     request returns 422.
+//     request returns 400, as Stripe does for idempotency-key misuse.
 //   - Once the handler has produced a response below 500, that response is stored and
 //     replayed to every retry (marked with Idempotent-Replayed: true).
 //   - A request that is still running returns 409 to concurrent duplicates.
@@ -84,7 +84,7 @@ func Idempotency(pool *pgxpool.Pool) func(http.Handler) http.Handler {
 				switch {
 				case claim.fingerprint != fingerprint:
 					writeError(w, r, &apierrors.APIError{
-						StatusCode: http.StatusUnprocessableEntity,
+						StatusCode: http.StatusBadRequest,
 						Type:       apierrors.ErrorTypeIdempotency,
 						Code:       apierrors.CodeIdempotencyKeyInUse,
 						Message:    "This Idempotency-Key was already used with a different request.",

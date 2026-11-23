@@ -76,7 +76,7 @@ func NotFound(resource, id string) *APIError {
 
 func InvalidParam(param, message string) *APIError {
 	return &APIError{
-		StatusCode: http.StatusUnprocessableEntity,
+		StatusCode: http.StatusBadRequest,
 		Type:       ErrorTypeInvalidRequest,
 		Code:       CodeInvalidParam,
 		Message:    message,
@@ -86,7 +86,7 @@ func InvalidParam(param, message string) *APIError {
 
 func MissingParam(param string) *APIError {
 	return &APIError{
-		StatusCode: http.StatusUnprocessableEntity,
+		StatusCode: http.StatusBadRequest,
 		Type:       ErrorTypeInvalidRequest,
 		Code:       CodeMissingParam,
 		Message:    fmt.Sprintf("Missing required param: %q", param),

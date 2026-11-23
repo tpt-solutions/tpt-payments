@@ -94,11 +94,11 @@ describe('requests', () => {
   });
 
   it('does not retry client errors', async () => {
-    const fetchMock = mockFetch(json(422, { error: { message: 'bad amount', param: 'amount' } }));
+    const fetchMock = mockFetch(json(400, { error: { message: 'bad amount', param: 'amount' } }));
     const client = new TPTPay({ apiKey: 'sk_test_abc', maxRetries: 3, retryBaseDelayMs: 0 });
 
     await expect(client.paymentIntents.create({ amount: 0, currency: 'usd' })).rejects.toMatchObject({
-      status: 422,
+      status: 400,
       param: 'amount',
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);

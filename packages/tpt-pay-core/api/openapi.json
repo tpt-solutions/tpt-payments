@@ -339,13 +339,13 @@
               }
             }
           },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
           "401": {
             "$ref": "#/components/responses/Error"
           },
           "403": {
-            "$ref": "#/components/responses/Error"
-          },
-          "422": {
             "$ref": "#/components/responses/Error"
           }
         }
@@ -484,9 +484,6 @@
           },
           "400": {
             "$ref": "#/components/responses/Error"
-          },
-          "422": {
-            "$ref": "#/components/responses/Error"
           }
         }
       }
@@ -595,9 +592,6 @@
           "404": {
             "$ref": "#/components/responses/Error"
           },
-          "422": {
-            "$ref": "#/components/responses/Error"
-          },
           "502": {
             "$ref": "#/components/responses/Error"
           }
@@ -678,7 +672,7 @@
               }
             }
           },
-          "422": {
+          "400": {
             "$ref": "#/components/responses/Error"
           }
         }
@@ -858,7 +852,7 @@
       "name": "Idempotency-Key",
       "in": "header",
       "required": false,
-      "description": "Makes a write safe to retry. The same key with a different request returns 422. Keys expire after 24 hours.",
+      "description": "Makes a write safe to retry. The same key with a different request returns 400. Keys expire after 24 hours.",
       "schema": {
         "type": "string",
         "maxLength": 255

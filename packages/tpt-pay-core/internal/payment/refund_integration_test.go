@@ -87,7 +87,7 @@ func TestIntegration_PartialRefunds_CannotExceedCapture(t *testing.T) {
 	_, err = e.svc.CreateRefund(ctx, e.scope(), payment.CreateRefundParams{PaymentIntentID: intent.ID, Amount: 701})
 	var apiErr *apierrors.APIError
 	require.True(t, errors.As(err, &apiErr))
-	assert.Equal(t, 422, apiErr.StatusCode)
+	assert.Equal(t, 400, apiErr.StatusCode)
 
 	// Omitting amount refunds the remaining 700.
 	rest, err := e.svc.CreateRefund(ctx, e.scope(), payment.CreateRefundParams{PaymentIntentID: intent.ID})

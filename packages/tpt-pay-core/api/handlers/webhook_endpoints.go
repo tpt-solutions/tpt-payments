@@ -162,8 +162,8 @@ func endpointResponse(ep *webhookEndpointRow) map[string]interface{} {
 	}
 }
 
-// errBadJSON reports a body that is not valid JSON for this endpoint. It is a 400, not a
-// 422, because no parameter was understood at all.
+// errBadJSON reports a body that is not valid JSON for this endpoint. It is a 400, as are
+// all parameter errors, because no parameter was understood at all.
 func errBadJSON(err error) *apierrors.APIError {
 	var maxErr *http.MaxBytesError
 	if errors.As(err, &maxErr) {

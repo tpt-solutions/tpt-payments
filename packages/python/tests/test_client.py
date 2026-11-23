@@ -104,7 +104,7 @@ async def test_client_error_is_not_retried():
     async def bad(request, n):
         nonlocal attempts
         attempts += 1
-        return web.json_response({"error": {"message": "bad amount"}}, status=422)
+        return web.json_response({"error": {"message": "bad amount"}}, status=400)
 
     server, _ = await make_server({("POST", "/v1/payment_intents"): bad})
     try:
