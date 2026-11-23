@@ -57,6 +57,10 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return cmdKeysCreate(ctx, args[2:], stdout)
 	case "trigger":
 		return cmdTrigger(ctx, args[1:], stdout)
+	case "logs":
+		return cmdLogs(ctx, args[1:], stdout)
+	case "replay":
+		return cmdReplay(ctx, args[1:], stdout)
 	case "events":
 		for _, e := range eventTypes {
 			fmt.Fprintln(stdout, e)
@@ -77,6 +81,8 @@ func usage(w io.Writer) {
   tpt login --api-key KEY [--base-url URL]
   tpt keys create [--type secret|publishable] [--mode test|live] [--name NAME]
   tpt trigger EVENT --forward-to URL --secret whsec_...
+  tpt logs [--limit N] [--endpoint ID]
+  tpt replay DELIVERY_ID
   tpt events`)
 }
 
@@ -340,4 +346,74 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// cmdLogs prints one page of recent webhook deliveries.
+func cmdLogs(ctx context.Context, args []string, stdout io.Writer) error {
+	fs := flag.NewFlagSet("logs", flag.ContinueOnError)
+	limit := fs.Int("limit", 10, "how many deliveries to show (1-100)")
+	endpoint := fs.String("endpoint", "", "only deliveries for this endpoint ID")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	p, err := loadProfile()
+	if err != nil {
+		return err
+	}
+	if p.APIKey == "" {
+		return errors.New("not logged in: run tpt login --api-key KEY")
+	}
+	path := fmt.Sprintf("/webhook_deliveries?limit=%d", *limit)
+	if *endpoint != "" {
+		path += "&endpoint_id=" + url.QueryEscape(*endpoint)
+	}
+	raw, err := do(ctx, p, http.MethodGet, path, nil, nil)
+	if err != nil {
+		return err
+	}
+	var page struct {
+		Data []struct {
+			ID         string `json:"id"`
+			EventType  string `json:"event_type"`
+			Status     string `json:"status"`
+			Attempts   int    `json:"attempts"`
+			LastStatus *int   `json:"last_http_status"`
+			LastError  string `json:"last_error"`
+		} `json:"data"`
+		HasMore bool `json:"has_more"`
+	}
+	if err := json.Unmarshal(raw, &page); err != nil {
+		return fmt.Errorf("read deliveries: %w", err)
+	}
+	for _, d := range page.Data {
+		code := "-"
+		if d.LastStatus != nil {
+			code = fmt.Sprint(*d.LastStatus)
+		}
+		fmt.Fprintf(stdout, "%s  %-30s  %-9s  attempts=%d  http=%s  %s\n",
+			d.ID, d.EventType, d.Status, d.Attempts, code, d.LastError)
+	}
+	if page.HasMore {
+		fmt.Fprintln(stdout, "(more deliveries exist; raise --limit to see them)")
+	}
+	return nil
+}
+
+// cmdReplay queues a delivery to be sent again.
+func cmdReplay(ctx context.Context, args []string, stdout io.Writer) error {
+	if len(args) != 1 {
+		return errors.New("usage: tpt replay DELIVERY_ID")
+	}
+	p, err := loadProfile()
+	if err != nil {
+		return err
+	}
+	if p.APIKey == "" {
+		return errors.New("not logged in: run tpt login --api-key KEY")
+	}
+	if _, err := do(ctx, p, http.MethodPost, "/webhook_deliveries/"+url.PathEscape(args[0])+"/replay", map[string]string{}, nil); err != nil {
+		return err
+	}
+	fmt.Fprintf(stdout, "queued delivery %s for another attempt\n", args[0])
+	return nil
 }
