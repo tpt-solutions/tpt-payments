@@ -13,6 +13,12 @@ import {
   prototypeUser,
   verifyPassword,
 } from '../../../../lib/auth'
+import {
+  accountKey,
+  clearFailedLogins,
+  lockedUntil,
+  recordFailedLogin,
+} from '../../../../lib/lockout'
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000
 const LOGIN_MAX_ATTEMPTS = 10
@@ -40,13 +46,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
     }
 
+    // Refuse before checking the password while the account is locked, so a locked account
+    // cannot be probed.
+    const accountId = accountKey(email)
+    if (lockedUntil(accountId) !== null) {
+      return NextResponse.json({ error: 'Account temporarily locked. Try again later.' }, { status: 429 })
+    }
+
     // Check the password even when the email is wrong, so the response time does not reveal
     // which part failed.
-    const emailMatches = email.trim().toLowerCase() === user.email.toLowerCase()
+    const emailMatches = accountId === accountKey(user.email)
     const passwordMatches = await verifyPassword(password, user.passwordHash)
     if (!emailMatches || !passwordMatches) {
+      recordFailedLogin(accountId)
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
+    clearFailedLogins(accountId)
 
     const cookieStore = await cookies()
 
