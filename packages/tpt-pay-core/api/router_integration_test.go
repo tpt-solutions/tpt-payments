@@ -61,7 +61,7 @@ func newStack(t *testing.T) *stack {
 	keys := apikey.NewService(pool)
 	paySvc := payment.NewService(pool, sandbox.Default(), ledger.New(pool))
 	return &stack{
-		handler:    api.NewRouter(pool, paySvc, keys, testSecrets(t), prometheus.NewRegistry()),
+		handler:    api.NewRouter(pool, paySvc, keys, testSecrets(t), prometheus.NewRegistry(), nil),
 		pool:       pool,
 		keys:       keys,
 		merchantID: merchantID.String(),
@@ -272,7 +272,7 @@ func TestIdempotency_KeyReuseWithDifferentBodyIsRejected(t *testing.T) {
 
 	rec := s.doWithKey(http.MethodPost, "/v1/payment_intents", secret,
 		`{"amount":9999,"currency":"usd"}`, "reuse-1")
-	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "idempotency_key_in_use")
 	assert.Equal(t, 1, s.intentCount(t))
 }
@@ -285,7 +285,7 @@ func TestIdempotency_KeyReuseOnAnotherPathIsRejected(t *testing.T) {
 	// Same empty body on two different endpoints must not replay across them.
 	require.Equal(t, http.StatusOK, s.doWithKey(http.MethodPost, "/v1/payment_intents/"+id+"/cancel", secret, `{}`, "path-1").Code)
 	rec := s.doWithKey(http.MethodPost, "/v1/payment_intents/"+id+"/capture", secret, `{}`, "path-1")
-	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestIdempotency_OversizedBodyIsRejectedNotTruncated(t *testing.T) {
@@ -330,16 +330,16 @@ func TestWebhookEndpoint_ValidationRejectsUnsafeTargets(t *testing.T) {
 
 	rec := s.do(http.MethodPost, "/v1/webhook_endpoints", live,
 		`{"url":"http://merchant.example.com/hook"}`)
-	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code, "live endpoints must use https")
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "live endpoints must use https")
 
 	rec = s.do(http.MethodPost, "/v1/webhook_endpoints", live,
 		`{"url":"https://169.254.169.254/latest"}`)
-	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code, "link-local targets must be refused")
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "link-local targets must be refused")
 
 	test := s.key(t, apikey.TypeSecret, apikey.ModeTest)
 	rec = s.do(http.MethodPost, "/v1/webhook_endpoints", test,
 		`{"url":"https://merchant.example.com/hook","enabled_events":["payment_intent.typo"]}`)
-	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code, "unknown event types must be refused")
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "unknown event types must be refused")
 }
 
 func TestWebhookEndpoint_ScopedByMode(t *testing.T) {
@@ -400,11 +400,11 @@ func TestHardening_UnknownCurrencyAndCaptureMethodAreRejected(t *testing.T) {
 	secret := s.key(t, apikey.TypeSecret, apikey.ModeTest)
 
 	rec := s.do(http.MethodPost, "/v1/payment_intents", secret, `{"amount":100,"currency":"usdx"}`)
-	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "currency")
 
 	rec = s.do(http.MethodPost, "/v1/payment_intents", secret, `{"amount":100,"currency":"usd","capture_method":"sometimes"}`)
-	assert.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestHardening_OversizedBodyFromLimitBodyIsRejected(t *testing.T) {

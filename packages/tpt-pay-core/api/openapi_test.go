@@ -16,7 +16,7 @@ import (
 // TestOpenAPIMatchesRouter fails when a route is added or removed without updating
 // openapi.json, so the published contract cannot drift from what is served.
 func TestOpenAPIMatchesRouter(t *testing.T) {
-	router := NewRouter(nil, nil, nil, nil, prometheus.NewRegistry())
+	router := NewRouter(nil, nil, nil, nil, prometheus.NewRegistry(), nil)
 	chiRoutes, ok := router.(chi.Routes)
 	require.True(t, ok, "router must be a chi router")
 	routes := map[string]bool{}
@@ -64,7 +64,7 @@ func TestOpenAPIMatchesRouter(t *testing.T) {
 }
 
 func TestOpenAPIIsServed(t *testing.T) {
-	router := NewRouter(nil, nil, nil, nil, prometheus.NewRegistry())
+	router := NewRouter(nil, nil, nil, nil, prometheus.NewRegistry(), nil)
 	rec := serve(router, http.MethodGet, "/openapi.json")
 	require.Equal(t, http.StatusOK, rec.Code)
 	var doc map[string]any

@@ -17,6 +17,7 @@ import (
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ratelimit"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
 )
 
@@ -29,6 +30,7 @@ func NewRouter(
 	apiKeySvc *apikey.Service,
 	secrets *secretbox.Box,
 	reg *prometheus.Registry,
+	limiter ratelimit.Limiter,
 ) http.Handler {
 	r := chi.NewRouter()
 	metrics := middleware.NewMetrics(reg)
@@ -50,6 +52,9 @@ func NewRouter(
 	// ── Authenticated API (all routes under /v1 require a valid API key) ──────
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(middleware.RequireAuth(apiKeySvc))
+		if limiter != nil {
+			r.Use(middleware.RateLimit(limiter))
+		}
 		r.Use(middleware.Idempotency(pool))
 
 		// Permissions: "secret" routes perform server-side operations and reject

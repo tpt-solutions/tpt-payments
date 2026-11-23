@@ -88,7 +88,7 @@ func main() {
 // servedRoutes returns the "METHOD /path" set registered by the real router.
 // Dependencies are nil: route registration does not touch them.
 func servedRoutes() (map[string]bool, error) {
-	router := api.NewRouter(nil, nil, nil, nil, prometheus.NewRegistry())
+	router := api.NewRouter(nil, nil, nil, nil, prometheus.NewRegistry(), nil)
 	routes, ok := router.(chi.Routes)
 	if !ok {
 		return nil, fmt.Errorf("router does not expose its routes")

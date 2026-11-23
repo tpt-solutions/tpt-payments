@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/api"
@@ -21,6 +22,7 @@ import (
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ledger"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ratelimit"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/webhook"
 )
@@ -105,7 +107,12 @@ func run() error {
 		return fmt.Errorf("WEBHOOK_SECRET_KEY: %w (generate with: openssl rand -base64 32)", err)
 	}
 
-	router := api.NewRouter(pool, paymentSvc, apiKeySvc, secrets, metricsRegistry)
+	limiter, err := buildRateLimiter(cfg.RateLimit, cfg.Redis.URL)
+	if err != nil {
+		return err
+	}
+
+	router := api.NewRouter(pool, paymentSvc, apiKeySvc, secrets, metricsRegistry, limiter)
 
 	// Webhook delivery worker: drains the outbox written by payment state changes.
 	deliveries := webhook.NewWorker(pool, secrets, webhook.WorkerConfig{
@@ -167,4 +174,41 @@ func setupLogger(level string) {
 		lvl = slog.LevelInfo
 	}
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl})))
+}
+
+// buildRateLimiter returns the per-key limiter, or nil when limiting is off. The redis backend
+// fails startup if Redis is unreachable, so a replica never runs without shared limits by accident.
+func buildRateLimiter(cfg config.RateLimitConfig, redisURL string) (ratelimit.Limiter, error) {
+	const window = time.Minute
+	if cfg.PerMinute == 0 {
+		slog.Warn("API rate limiting is off (API_RATE_LIMIT=0)")
+		return nil, nil
+	}
+	if cfg.Backend == "memory" {
+		slog.Warn("rate limiting uses memory; limits are not shared between replicas", "per_minute", cfg.PerMinute)
+		l, err := ratelimit.NewMemory(cfg.PerMinute, window)
+		if err != nil {
+			return nil, err
+		}
+		return l, nil
+	}
+
+	opts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		return nil, fmt.Errorf("REDIS_URL: %w", err)
+	}
+	client := redis.NewClient(opts)
+	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := client.Ping(pingCtx).Err(); err != nil {
+		_ = client.Close()
+		return nil, fmt.Errorf("redis is unreachable for rate limiting: %w (for single-node development set RATE_LIMIT_BACKEND=memory)", err)
+	}
+	l, err := ratelimit.NewRedis(client, cfg.PerMinute, window)
+	if err != nil {
+		_ = client.Close()
+		return nil, err
+	}
+	slog.Info("rate limiting on", "backend", "redis", "per_minute", cfg.PerMinute)
+	return l, nil
 }

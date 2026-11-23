@@ -10,15 +10,16 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	NATS     NATSConfig
-	Vault    VaultConfig
-	Redis    RedisConfig
-	Adapter  AdapterConfig
-	App      AppConfig
-	Webhook  WebhookConfig
-	Ledger   LedgerConfig
+	Server    ServerConfig
+	Database  DatabaseConfig
+	NATS      NATSConfig
+	Vault     VaultConfig
+	Redis     RedisConfig
+	RateLimit RateLimitConfig
+	Adapter   AdapterConfig
+	App       AppConfig
+	Webhook   WebhookConfig
+	Ledger    LedgerConfig
 }
 
 // LedgerConfig controls the scheduled ledger integrity check.
@@ -52,6 +53,14 @@ type VaultConfig struct {
 	Token    string
 	RoleID   string
 	SecretID string
+}
+
+// RateLimitConfig controls per-key request limits. See internal/middleware/ratelimit.go.
+type RateLimitConfig struct {
+	// Backend is "redis" (shared by all replicas; the default) or "memory" (one process only).
+	Backend string
+	// PerMinute is how many requests each API key may make per minute. 0 turns limiting off.
+	PerMinute int
 }
 
 type RedisConfig struct {
@@ -119,6 +128,16 @@ func Load() (*Config, error) {
 	}
 
 	cfg.Redis = RedisConfig{URL: getEnv("REDIS_URL", "redis://localhost:6379/0")}
+	cfg.RateLimit = RateLimitConfig{
+		Backend:   getEnv("RATE_LIMIT_BACKEND", "redis"),
+		PerMinute: p.integer("API_RATE_LIMIT", "100"),
+	}
+	if cfg.RateLimit.Backend != "redis" && cfg.RateLimit.Backend != "memory" {
+		errs = append(errs, errors.New("RATE_LIMIT_BACKEND must be redis or memory"))
+	}
+	if cfg.RateLimit.PerMinute < 0 {
+		errs = append(errs, errors.New("API_RATE_LIMIT must be 0 or more"))
+	}
 	cfg.Adapter = AdapterConfig{Type: getEnv("ADAPTER_TYPE", "sandbox")}
 	cfg.App = AppConfig{
 		Env:      getEnv("APP_ENV", "development"),
@@ -157,6 +176,9 @@ func ValidateProduction(cfg *Config) error {
 	}
 	if strings.Contains(cfg.Database.URL, devDatabasePassword) {
 		problems = append(problems, "DATABASE_URL uses the development credentials tptpay:tptpay")
+	}
+	if cfg.RateLimit.PerMinute > 0 && cfg.RateLimit.Backend == "memory" {
+		problems = append(problems, "RATE_LIMIT_BACKEND=memory does not share limits between replicas; production needs redis")
 	}
 	if cfg.Vault.Token == devVaultToken {
 		problems = append(problems, "VAULT_TOKEN is the development root token")
