@@ -85,6 +85,11 @@ func NewRouter(
 		r.With(secret).Get("/webhook_endpoints/{id}", we.Retrieve)
 		r.With(secret, audit.Record("webhook_endpoint.delete", "webhook_endpoint")).Delete("/webhook_endpoints/{id}", we.Delete)
 
+		// Delivery inspector: list what was sent, replay a delivery.
+		wd := handlers.NewWebhookDeliveries(pool)
+		r.With(secret).Get("/webhook_deliveries", wd.List)
+		r.With(secret, audit.Record("webhook_delivery.replay", "webhook_delivery")).Post("/webhook_deliveries/{id}/replay", wd.Replay)
+
 		// API keys
 		ak := handlers.NewAPIKeys(apiKeySvc)
 		r.With(secret, audit.Record("api_key.create", "api_key")).Post("/api_keys", ak.Create)
