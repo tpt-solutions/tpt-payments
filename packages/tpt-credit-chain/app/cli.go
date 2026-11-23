@@ -157,6 +157,8 @@ func RegisterHumanCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			event, err := GlobalApp.IssuanceKeeper.RegisterHuman(
 				context.Background(),
@@ -197,6 +199,8 @@ func UpdateFrequencyCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			event, err := GlobalApp.IssuanceKeeper.UpdatePayoutFrequency(
 				addr, issuance.PayoutFrequency(freq),
@@ -235,6 +239,8 @@ func SendCreditsCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			amountInt, ok := math.NewIntFromString(amount)
 			if !ok {
@@ -276,6 +282,8 @@ func BatchSendCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			var entries []issuance.BatchSendEntry
 			if err := json.Unmarshal([]byte(entriesJSON), &entries); err != nil {
@@ -318,6 +326,8 @@ func QueryAccountCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			acct := GlobalApp.IssuanceKeeper.GetAccount(addr)
 			if acct == nil {
@@ -343,6 +353,8 @@ func QuerySupplyCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			supply := GlobalApp.IssuanceKeeper.GetSupply()
 			totalBalance := GlobalApp.IssuanceKeeper.GetTotalBalance()
@@ -367,6 +379,8 @@ func QueryAccountsCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			accounts := GlobalApp.IssuanceKeeper.GetAccounts()
 			if len(accounts) == 0 {
@@ -410,6 +424,8 @@ func QueryBurnRecordCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			record := GlobalApp.BurnKeeper.GetBurnRecord(addr, year)
 			if record == nil {
@@ -450,6 +466,8 @@ func QueryBurnSummaryCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			summary := GlobalApp.BurnKeeper.GetBurnSummary(year)
 			if summary == nil {
@@ -475,6 +493,8 @@ func QueryBurnSummariesCmd() *cobra.Command {
 			if GlobalApp == nil {
 				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
 			}
+			GlobalApp.mu.Lock()
+			defer GlobalApp.mu.Unlock()
 
 			summaries := GlobalApp.BurnKeeper.GetAllBurnSummaries()
 			if len(summaries) == 0 {
