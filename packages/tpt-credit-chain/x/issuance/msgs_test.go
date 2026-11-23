@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-credit-chain/x/issuance"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain/x/issuance"
 )
 
 // validUUID is a valid 64-char SHA-256 hex string used in tests.

@@ -20,12 +20,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/adapter/sandbox"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/ledger"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/payment"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/secretbox"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/testdb"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/webhook"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter/sandbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ledger"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/testdb"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/webhook"
 )
 
 type harness struct {

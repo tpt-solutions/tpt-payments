@@ -13,11 +13,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/api/handlers"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/middleware"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/payment"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/secretbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/api/handlers"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
 )
 
 // NewRouter builds and returns the fully configured HTTP router.

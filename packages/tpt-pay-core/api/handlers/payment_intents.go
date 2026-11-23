@@ -5,9 +5,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/middleware"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/payment"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
 )
 
 // scopeOf derives the merchant and mode the request may act on from its API key.

@@ -14,7 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/secretbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
 )
 
 // leaseDuration is how long a claimed delivery is hidden from other workers. If a worker

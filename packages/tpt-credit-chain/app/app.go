@@ -23,8 +23,8 @@ import (
 
 	"cosmossdk.io/math"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-credit-chain/x/burn"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-credit-chain/x/issuance"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain/x/burn"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain/x/issuance"
 )
 
 const (

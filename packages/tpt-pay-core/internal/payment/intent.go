@@ -4,7 +4,7 @@ package payment
 import (
 	"time"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apierrors"
 )
 
 // Status enumerates all valid PaymentIntent statuses.

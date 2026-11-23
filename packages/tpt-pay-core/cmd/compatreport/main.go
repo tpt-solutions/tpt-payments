@@ -22,7 +22,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/api"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/api"
 )
 
 // referenceEndpoints is the Stripe-compatible surface the project targets (API version

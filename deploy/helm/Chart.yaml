@@ -5,9 +5,9 @@ type: application
 version: 0.1.0
 appVersion: "0.1.0"
 
-home: https://github.com/tpt-payments/tpt-payments
+home: https://github.com/tpt-solutions/tpt-payments
 sources:
-  - https://github.com/tpt-payments/tpt-payments
+  - https://github.com/tpt-solutions/tpt-payments
 maintainers:
   - name: TPT Payments Team
 keywords:

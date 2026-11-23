@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/secretbox"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/webhook"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apierrors"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/webhook"
 )
 
 // WebhookEndpoints groups the webhook endpoint HTTP handlers. Every route requires a

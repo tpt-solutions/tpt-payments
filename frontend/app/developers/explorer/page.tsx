@@ -197,7 +197,7 @@ export default function APIExplorerPage() {
             <div className="mt-6 bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">cURL Example</h3>
               <pre className="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto text-sm">
-{`curl -X ${selectedEndpoint.method} https://api-sandbox.tptpayments.io${selectedEndpoint.path} \\
+{`curl -X ${selectedEndpoint.method} https://api-sandbox.tpt-payments.com${selectedEndpoint.path} \\
   -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(selectedEndpoint.body || {})}'`}

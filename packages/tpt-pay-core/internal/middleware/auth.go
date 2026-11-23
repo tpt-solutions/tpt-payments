@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apierrors"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
 )
 
 type authKey struct{}

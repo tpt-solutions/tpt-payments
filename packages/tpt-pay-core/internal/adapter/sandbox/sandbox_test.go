@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/adapter"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/adapter/sandbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter/sandbox"
 )
 
 func newSandbox() *sandbox.Sandbox {

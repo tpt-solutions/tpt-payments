@@ -224,5 +224,5 @@ kubectl rollout status deployment/tpt-payments -n tpt-payments
 
 ### Support
 - Documentation: https://docs.tpt-payments.com
-- Issues: https://github.com/tpt-payments/tpt-payments/issues
-- Community: https://github.com/tpt-payments/tpt-payments/discussions
+- Issues: https://github.com/tpt-solutions/tpt-payments/issues
+- Community: https://github.com/tpt-solutions/tpt-payments/discussions

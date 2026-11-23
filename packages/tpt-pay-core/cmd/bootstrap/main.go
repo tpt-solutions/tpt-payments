@@ -18,7 +18,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
 )
 
 func main() {

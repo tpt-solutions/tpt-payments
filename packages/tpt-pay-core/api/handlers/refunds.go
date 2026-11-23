@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/payment"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apierrors"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
 )
 
 // Refunds groups the refund HTTP handlers.

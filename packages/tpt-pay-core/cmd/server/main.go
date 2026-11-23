@@ -14,15 +14,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/api"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/adapter/sandbox"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/config"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/ledger"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/middleware"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/payment"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/secretbox"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/webhook"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/api"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter/sandbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/config"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ledger"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/webhook"
 )
 
 var (

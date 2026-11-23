@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apierrors"
 )
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {

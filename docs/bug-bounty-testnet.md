@@ -88,4 +88,4 @@ are permanently prevented from being reintroduced.
 
 - Security: security@tptcredit.com
 - Testnet issues: testnet@tptcredit.com
-- GitHub: https://github.com/tpt-platform/tpt-platform
+- GitHub: https://github.com/tpt-solutions/tpt-payments

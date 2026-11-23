@@ -1,4 +1,4 @@
-module github.com/tpt-platform/tpt-platform/packages/tpt-credit-chain
+module github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain
 
 go 1.23.0
 

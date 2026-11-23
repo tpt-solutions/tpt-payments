@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/adapter"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter"
 )
 
 // Test card numbers that trigger specific behaviours.

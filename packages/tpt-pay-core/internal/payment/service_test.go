@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/payment"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
 )
 
 func TestStateMachine_ValidTransitions(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"cosmossdk.io/math"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-credit-chain/x/issuance"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain/x/issuance"
 )
 
 func TestAnnualAllocation_MatchesSpec(t *testing.T) {

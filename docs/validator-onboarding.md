@@ -13,7 +13,7 @@ The testnet uses Proof-of-Authority (PoA) consensus with a maximum of 7 validato
 ## Step 1: Build the Chain Binary
 
 ```bash
-git clone https://github.com/tpt-platform/tpt-platform.git
+git clone https://github.com/tpt-solutions/tpt-payments.git
 cd tpt-platform/packages/tpt-credit-chain
 go build -o /usr/local/bin/tptcreditd ./cmd/tptcreditd
 ```
@@ -40,7 +40,7 @@ This creates `~/.tptcredit/config/` with:
 ```bash
 # Download the testnet genesis file.
 curl -o ~/.tptcredit/config/genesis.json \
-  https://raw.githubusercontent.com/tpt-platform/tpt-platform/master/config/testnet-genesis.json
+  https://raw.githubusercontent.com/tpt-solutions/tpt-payments/master/config/testnet-genesis.json
 
 # Verify the genesis hash.
 sha256sum ~/.tptcredit/config/genesis.json
@@ -171,7 +171,7 @@ docker run -d --name node-exporter \
 ## Getting Help
 
 - Testnet administrators: [testnet@tptcredit.com](mailto:testnet@tptcredit.com)
-- GitHub Issues: https://github.com/tpt-platform/tpt-platform/issues
+- GitHub Issues: https://github.com/tpt-solutions/tpt-payments/issues
 - Validator chat: [Telegram link to be provided]
 
 ## Useful Commands

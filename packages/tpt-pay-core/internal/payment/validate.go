@@ -5,7 +5,7 @@ import (
 
 	"golang.org/x/text/currency"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apierrors"
 )
 
 // MaxAmountMajor is the largest amount accepted, in major currency units (10,000,000 USD,

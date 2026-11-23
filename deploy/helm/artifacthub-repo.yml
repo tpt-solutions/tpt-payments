@@ -4,7 +4,7 @@
 
 repositoryID: tpt-payments
 repositoryName: TPT Payments
-repositoryUrl: https://github.com/tpt-payments/tpt-payments
+repositoryUrl: https://github.com/tpt-solutions/tpt-payments
 description: TPT Payments - Open Source Stripe Alternative Helm Chart
 kind: helm
 owners:

@@ -1,4 +1,4 @@
-module github.com/tpt-platform/tpt-platform/packages/tpt-pay-core
+module github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core
 
 go 1.26.0
 

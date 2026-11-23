@@ -26,7 +26,7 @@
     ]
   },
   "codebase": {
-    "git_repo": "https://github.com/tpt-platform/tpt-platform",
+    "git_repo": "https://github.com/tpt-solutions/tpt-payments",
     "recommended_version": "v0.1.0",
     "compatible_versions": ["v0.1.0"],
     "cosmos_sdk_version": "simulated",
@@ -35,8 +35,8 @@
     "cosmwasm_version": ""
   },
   "logo_URIs": {
-    "png": "https://raw.githubusercontent.com/tpt-platform/tpt-platform/main/tpt-payments/deploy/testnet/explorer/branding/logo.png",
-    "svg": "https://raw.githubusercontent.com/tpt-platform/tpt-platform/main/tpt-payments/deploy/testnet/explorer/branding/logo.svg"
+    "png": "https://raw.githubusercontent.com/tpt-solutions/tpt-payments/main/deploy/testnet/explorer/branding/logo.png",
+    "svg": "https://raw.githubusercontent.com/tpt-solutions/tpt-payments/main/deploy/testnet/explorer/branding/logo.svg"
   },
   "description": "TPT Credit is a sovereign credit blockchain with immutable issuance (12,000 credits/year per verified human) and an annual full-burn mechanism. No on-ramps, no off-ramps, zero transaction fees. This is the public testnet.",
   "apis": {
@@ -69,8 +69,8 @@
   ],
   "images": [
     {
-      "png": "https://raw.githubusercontent.com/tpt-platform/tpt-platform/main/tpt-payments/deploy/testnet/explorer/branding/logo.png",
-      "svg": "https://raw.githubusercontent.com/tpt-platform/tpt-platform/main/tpt-payments/deploy/testnet/explorer/branding/logo.svg"
+      "png": "https://raw.githubusercontent.com/tpt-solutions/tpt-payments/main/deploy/testnet/explorer/branding/logo.png",
+      "svg": "https://raw.githubusercontent.com/tpt-solutions/tpt-payments/main/deploy/testnet/explorer/branding/logo.svg"
     }
   ]
 }

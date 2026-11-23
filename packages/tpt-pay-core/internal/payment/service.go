@@ -13,10 +13,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/adapter"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/ledger"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/webhook"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apierrors"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ledger"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/webhook"
 )
 
 // PlatformMerchantID owns the platform clearing account. It is seeded by migration

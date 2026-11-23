@@ -26,7 +26,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-credit-chain/app"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain/app"
 )
 
 func main() {

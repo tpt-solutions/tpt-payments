@@ -135,7 +135,7 @@ asyncio.run(create_payment())`,
     examples: [
       {
         label: 'Create a Payment Intent',
-        code: `curl -X POST https://api-sandbox.tptpayments.io/v1/payment_intents \\
+        code: `curl -X POST https://api-sandbox.tpt-payments.com/v1/payment_intents \\
   -H "Authorization: Bearer sk_test_..." \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -146,12 +146,12 @@ asyncio.run(create_payment())`,
       },
       {
         label: 'Retrieve a Payment Intent',
-        code: `curl -X GET https://api-sandbox.tptpayments.io/v1/payment_intents/pi_3MtwB2eZvKYlo2C2eZvKYlo \\
+        code: `curl -X GET https://api-sandbox.tpt-payments.com/v1/payment_intents/pi_3MtwB2eZvKYlo2C2eZvKYlo \\
   -H "Authorization: Bearer sk_test_..."`,
       },
       {
         label: 'Create a Refund',
-        code: `curl -X POST https://api-sandbox.tptpayments.io/v1/refunds \\
+        code: `curl -X POST https://api-sandbox.tpt-payments.com/v1/refunds \\
   -H "Authorization: Bearer sk_test_..." \\
   -H "Content-Type: application/json" \\
   -d '{

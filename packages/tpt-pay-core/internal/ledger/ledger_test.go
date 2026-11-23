@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/ledger"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ledger"
 )
 
 // ── Unit tests: entry validation (no database required) ───────────────────────

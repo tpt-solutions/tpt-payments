@@ -7,9 +7,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apierrors"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/apikey"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/middleware"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apierrors"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
 )
 
 // APIKeys groups the API key HTTP handlers. Both routes require a secret key (enforced

@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/ledger"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-pay-core/internal/testdb"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ledger"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/testdb"
 )
 
 // seedAccounts creates a merchant with a USD account and an EUR account.

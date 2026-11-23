@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-credit-chain/x/burn"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain/x/burn"
 )
 
 func TestCalculateRedistribution_EvenSplit(t *testing.T) {

@@ -112,7 +112,7 @@ export default function ChangelogPage() {
             Specify the API version by setting the <code className="bg-blue-100 px-1 rounded">Stripe-Version</code> header in your requests.
           </p>
           <pre className="bg-blue-900 text-blue-100 p-3 rounded text-xs overflow-x-auto">
-{`curl https://api.tptpayments.io/v1/payment_intents \\
+{`curl https://api.tpt-payments.com/v1/payment_intents \\
   -H "Stripe-Version: 2024-06-20" \\
   -H "Authorization: Bearer sk_test_..."`}
           </pre>

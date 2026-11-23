@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tpt-platform/tpt-platform/packages/tpt-credit-chain/x/burn"
-	"github.com/tpt-platform/tpt-platform/packages/tpt-credit-chain/x/issuance"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain/x/burn"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain/x/issuance"
 )
 
 // ── MockIssuanceKeeper ─────────────────────────────────────────────────────────
