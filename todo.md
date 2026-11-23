@@ -1,9 +1,10 @@
 # TODO
 
-Source: platform review 
+Source: platform review
 Decisions: `packages/tpt-pay-core` is canonical (archive `backend/`); credit chain is relabeled as a simulator; scope is the full plan, executed in order, one PR per phase. Paths are relative to repo root; core = `packages/tpt-pay-core/`.
 
 ## 0. Status honesty (land first; no scope is removed)
+
 Nothing below deletes a promised feature. Every promise stays and becomes a build item in §1–§9.
 - [x] README "Status" table listing every promised capability (stable / alpha / prototype / in progress / simulator / planned), each row linking to its todo item; a row flips to "stable" only when its tests pass
 - [x] Rows to include at minimum: NATS JetStream webhooks, Redis rate limiting, Vault/KMS encryption, `BankSponsorAdapter`, `DirectAcquiringAdapter`, Stripe compatibility, refunds, OpenAPI + generated SDKs, Cosmos SDK / CometBFT credit chain, wallets, explorer, `tpt` CLI, Helm, monitoring
@@ -14,6 +15,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [x] Add a short "Status" note to the top of `frontend/` and the credit-chain package README stating simulator / prototype status
 
 ## 1. Blocking bugs in core
+
 - [x] 1. Confirm always 400s: add attach-payment-method / allow `requires_payment_method → processing` with a PM; add `processing → requires_capture` (`internal/payment/intent.go:52`, `service.go:90,154`)
 - [x] 2. Capture fails on clearing-account FK: seed a system merchant + clearing account in a migration (`service.go:291`)
 - [x] 3. Concurrency: do each transition in one txn with `SELECT … FOR UPDATE` / `WHERE status = expected` (`service.go:85,175,212,270-276`)
@@ -35,6 +37,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [x] Happy-path integration tests (`internal/payment/service_integration_test.go`, `api/router_integration_test.go`), run against PostgreSQL 18 with every migration applied: create → confirm → capture, decline/retry, partial capture, concurrent capture and confirm (20 workers, exactly one winner), cancel, ledger idempotency. Skipped unless `TEST_DATABASE_URL` is set. Not yet run under `-race` locally (no C compiler on this machine); CI runs it.
 
 ## 2. Missing features the README promises
+
 - [~] Webhook delivery engine (outbox → NATS JetStream → HTTP delivery, retries, `webhook_deliveries` rows, 72h / 15-attempt policy). Done: Postgres outbox (`webhook_deliveries`, migration 14), worker, retry config. Done since: JetStream transport (`internal/webhook/jetstream.go`): the relay publishes unpublished delivery IDs to the `WEBHOOKS` work-queue stream with the delivery ID as message ID (duplicates dropped); a durable pull consumer calls `Worker.Attempt` and acks, or NAKs with the retry delay; `NATS_URL` selects it, otherwise the database poll runs. Tests use an embedded JetStream server (no database). Open: the 72h / 15-attempt policy is not re-verified against the spec; a DB-backed test of the JetStream path (needs `TEST_DATABASE_URL`)
 - [~] Redis rate limiting; Vault encryption for keys / webhook secrets. Done: per-API-key fixed-window limiter (`internal/ratelimit`, Redis shared across replicas, memory for single-node dev), 429 with `Retry-After`, `API_RATE_LIMIT` per minute, startup fails if Redis is unreachable, fails open per request if Redis drops. Open: run against a real Redis in CI; Vault for the API-key store (keys are stored as digests, not encrypted)
 - [x] Refund endpoint (`POST /v1/refunds`, `GET /v1/refunds/{id}`): row-locked reservation, network call outside the transaction, ledger reversal, `charge.refunded`. Integration tests in `refund_integration_test.go` (partial and full refunds, over-refund, concurrency, tenant isolation)
@@ -53,6 +56,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [x] Ledger: DB-level balanced-entries constraint, TRUNCATE guard, currency-matches-account (migration 16), per-currency `Balance` / `MerchantBalances`, scheduled `VerifyIntegrity` (`LEDGER_INTEGRITY_INTERVAL`), TRUNCATE guard, per-currency `Balance`, currency match with account, scheduled `VerifyIntegrity`
 
 ## 3. Repo hygiene
+
 - [x] Archive `backend/` (no go.mod, doesn't build, unauthenticated, XSS, fake compliance code); exclude from CI. Moved to `archive/backend/` with a note; no CI or Dependabot reference existed
 - [x] Removed `tools/compatibility-report` (replaced by `packages/tpt-pay-core/cmd/compatreport`). Stray `chain/go.mod`: removed
 - [x] Add `.gitignore` (done); `git rm` committed binaries (`packages/tpt-credit-chain/bin/tptcreditd.exe`, `tptcreditd.exe`) (removed from the index, not committed yet)
@@ -62,6 +66,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [~] Tests: handlers, `payment.Service`, ledger DB ops, apikey, idempotency middleware, config; testcontainers integration tests; webhook Verify edge cases (multi-v1, malformed / future timestamps). Done: webhook verify edge cases (already covered), config, apikey helpers and idempotency fingerprint (unit), rate limiting, the new credit-chain rules. Open: handler tests, DB-backed `apikey.Service` and idempotency claims, ledger DB ops, testcontainers (the DB tests use `TEST_DATABASE_URL` instead)
 
 ## 4. Adoption: examples, templates, DX
+
 - [~] `make quickstart`: copy `.env`, compose up, migrate in-container, seed test merchant + `sk_test_` key, print first-payment curl; cross-platform (no `SHELL := /bin/bash`). Done: `cmd/quickstart` (Go, unit-tested) does the steps; `make quickstart` calls it; the SHELL override is gone. Not verified end to end (no Docker daemon here). Migrations still run through the Atlas service, which is open in §1 item 7
 - [~] README "first payment in 5 minutes" (create → confirm → capture, webhook receive). Done: create → confirm, with curl. Open: capture and webhook receive
 - [x] Documented test cards / magic values, test vs live keys (README table checked against the sandbox)
@@ -75,6 +80,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [ ] Devcontainer / Codespaces config; make `scripts/setup-dev.sh` discoverable from README
 
 ## 5. Automation / CI/CD
+
 - [~] CI for `frontend/`, both SDKs, Helm (`helm lint`), compose config, OpenAPI validation, examples; coverage reporting. Done: `ci-clients-frontend.yml` runs the frontend type-check and build, both SDK test suites, Helm lint and render, compose validation, and an OpenAPI check. Open: examples CI, coverage reporting, and making `required` the branch-protection check
 - [~] Always-run "required" gate job (path-filtered workflows can leave required checks stuck). Done in `ci-pay-core` and `ci-credit-chain`: pull-request path filters removed, and a `required` job with `if: always()` fails unless every job succeeded. Open: release, compatibility and security workflows, and making `required` the branch-protection check
 - [~] `security.yml`: fix audited paths; add CodeQL, gitleaks, Trivy; pin govulncheck; remove `continue-on-error` on chain govulncheck. Done: paths checked; CodeQL added for Go and JS/TS (actions pinned to v4.39.4); govulncheck pinned. Open: gitleaks (the action needs a license for organisation accounts), Trivy, and npm audit, which fails for `frontend/` because it has no lockfile
@@ -82,9 +88,10 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [~] Pin `arigaio/atlas:latest`, Helm `image.tag: latest`, other floating tags. Done: Helm tag defaults to appVersion; `air` in `Dockerfile.dev` pinned to v1.67.3. Atlas is pinned to `arigaio/atlas:1.4.0` (Done)
 - [ ] Release: release-please / conventional commits, GHCR push, cosign, SBOM, SLSA provenance, SDK + Helm publish, `-race`, fix `git describe` on first tag
 - [x] Fix `ci-credit-chain.yml` simulation step (no tests exist, `continue-on-error`). Done: the step is removed, and the invariant check fails if no `TestInvariant` test passes (the old pattern matched nothing and passed)
-- [~] Stale / labeler / PR size bots; markdown lint. Done: coverage is measured and summarized in the job summary, and uploaded as an artifact, for both Go modules (core and credit chain; coverage is measured, not yet gated). Open: stale, labeler, PR size, markdown lint
+- [~] Stale / labeler / PR size bots; markdown lint. Done: coverage is measured and summarized in the job summary, and uploaded as an artifact, for both Go modules (core and credit chain; coverage is measured, not yet gated). Done since: labeler (`.github/labeler.yml`, `pull_request_target` with no checkout), stale (`stale.yml`), and markdown lint in CI (`.markdownlint-cli2.jsonc`; stylistic rules the docs break are off, and the existing docs were auto-fixed). Open: PR size; the labeler and stale workflows have not run yet
 
 ## 6. Security (outside core)
+
 - [~] Credit chain identity bridge: remove hard-coded JWT fallback secret (`packages/tpt-credit-chain/services/identity/identity_bridge.go:165`); require `exp`, add replay protection; prefer asymmetric keys. Done: fails closed without a secret, requires `exp` and `jti`, rejects reused `jti` (`identity_bridge_test.go`). Open: asymmetric keys
 - [~] Frontend auth: remove hard-coded user, scrypt salt, default JWT secret, hard-coded TOTP secret (`frontend/app/api/auth/*`); add `middleware.ts`; rate-limit login / 2FA; single-use pre-auth token. Done: credentials come from `DEMO_USER_*` env vars (no defaults; 503 when unset); per-user random salt in `scrypt$salt$key`; no default JWT key (`lib/auth.ts`); `middleware.ts` guards dashboard routes; login and 2FA rate-limited; pre-auth tokens single-use. Done since: per-account lockout (5 failed passwords lock the account for 15 minutes; locked accounts are refused before the password is checked; `lib/lockout.ts`). Open: a real user store, a shared rate-limit and lockout store across instances, lockout on the 2FA step. The prototype account still exists
 - [~] Frontend: signing secret via `crypto.getRandomValues`, not `Math.random()`; bump `next` to ≥14.2.25. Done: API-key material uses `crypto.getRandomValues`; `next` is 14.2.35 (newest 14.2 patch). Open: `next` 14 declares a React 18 peer while the project uses React 19, so a clean `npm install` needs `--legacy-peer-deps`. Fix with a Next 15 migration or React 18 (decision needed)
@@ -94,6 +101,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [x] `golang-jwt/jwt/v5` v5.2.1: bumped to v5.3.1; `aiohttp>=3.9` floor; Python 3.9 dropped (`requires-python >=3.10`)
 
 ## 7. Credit chain (relabel as simulator)
+
 - [~] Update README, testnet compose, faucet, explorer, healthchecks to match reality (no CometBFT / ports 26657, 1317, 9090; metrics on 26660 only). Done: compose serves only 26660 with a working healthcheck; faucet and explorer are labelled as unable to reach the chain; Prometheus targets validator-0:26660; deploy script and onboarding doc corrected. Open: the faucet and explorer need RPC before they work
 - [x] Remove nonexistent subcommands from `scripts/deploy-testnet.sh`, `devnet-reset.sh`; add `--home` / `--overwrite` or fix docs. Done: `init` and `start` accept `--home`, and `init` refuses to replace a genesis without `--overwrite` (tested). Keys and gentx calls were removed; the deploy script requires `FAUCET_MNEMONIC` instead of generating one. Key management is still open
 - [~] State persistence (currently lost on restart); make `tx` / `query` usable outside `start` process. Done: both keepers snapshot and restore (`x/*/snapshot.go`); the state file is `state.json` in the node home, written atomically after every block, and loaded on start; a failed write halts the chain; a file for another chain or format stops startup; `init --overwrite` removes the old state. Tests: `app/state_test.go`, snapshot tests in both modules. Open: `tx` / `query` from another process (they still need the running node in-process)
@@ -104,6 +112,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [~] Keeper mutex / races; auth on `SendCredits` / `BatchSend` / `RegisterHuman`. Done: keeper inputs are validated (address format, 64-hex identity, genesis duplicates). `App.mu` now covers block production, snapshots and every CLI command that touches keepers. Open: the keeper has no lock of its own, so any new caller must take `App.mu`. Auth needs signed transactions, which the simulator does not have yet
 
 ## 8. SDKs and frontend (functional fixes)
+
 - [x] Python SDK: fix import, retries / timeouts, parse API error bodies, drop empty `Idempotency-Key`, HMAC raw bytes in webhooks, handle malformed headers, add tests, `pyproject.toml`
 - [x] JS SDK: tsconfig, jest, eslint, build with exports map, replace `crypto-js`, secret vs publishable surface enforced before any request, integer amounts and Unix `created` as core returns them, `TPTPayError` with code/param/requestId, idempotency + retry
   Open: README; `hosted_invoice_url` is not in the types because invoices are not served yet
@@ -113,6 +122,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [~] Stripe-compat: event names (`chargeback.*` vs `charge.dispute.*`), 422 vs 400, wire compat suite into a module. Done: parameter and idempotency errors are 400, as Stripe returns them (OpenAPI and SDK tests updated). Done: the webhook catalog, tester and dashboard list only the six event types the core emits (`KnownEventTypes`); the `charge.dispute.*`, `subscription.*`, `invoice.*` and `customer.*` entries are removed until those features exist. Open: the wire compat suite is not a module yet
 
 ## 9. Innovative additions
+
 - [ ] Test clocks for subscriptions; time-travel sandbox
 - [~] Scenario-based sandbox: failure injection (latency, timeouts, issuer decline codes), `pm_test_*` tokens, chaos. Done: scripted magic payment methods (`pm_card_declined`, `pm_card_insufficient_funds`, `pm_card_expired`, `pm_card_cvc_incorrect`, `pm_card_network_error`, `pm_card_slow`) in `internal/adapter/sandbox/scenarios.go`, documented in the README; the slow scenario honours the deadline. Open: `pm_test_*` naming, chaos mode, time-based failure windows mode
 - [ ] Webhook replay and inspector (persistent event log, redelivery, local tunnel in CLI)
@@ -124,10 +134,12 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [ ] Multi-adapter smart routing / failover (after `bank_sponsor` / `direct_acquiring` adapters exist)
 
 ## 10. Deferred: `backend/` features to port into core later
+
 - [ ] Refunds, subscriptions, invoicing, disputes, payouts, connect, fraud, compliance (replace placeholder implementations: fake 1099-K totals, fake SAR filing, settlement hash / PDF placeholders, hard-coded `127.0.0.1` dispute evidence)
 - [ ] Known bugs to avoid when porting: refund IDOR / double-refund race, ledger replay returning an error, ECB XML parsing, `%w` with string consts, reflected XSS in invoice page, no-op `APIKeyAuth`
 
 ## Suggested order
+
 1. Section 0 + Section 1 items 1–8 + happy-path integration test
 2. Section 1 items 11–12, Section 3 hygiene
 3. Section 4 quickstart + first-payment docs + Node / Python / webhook examples

@@ -1,0 +1,35 @@
+{
+  // Markdown lint for the repository's own documents. Stylistic rules that the existing docs
+  // break everywhere are off; structural rules stay on. Tighten a rule here once the docs
+  // comply with it.
+  "config": {
+    "default": true,
+    "MD001": true,
+    "MD003": false,
+    "MD004": false,
+    "MD007": false,
+    "MD010": false,
+    "MD012": false,
+    "MD013": false,
+    "MD024": false,
+    "MD025": false,
+    "MD026": false,
+    "MD029": false,
+    "MD031": false,
+    "MD032": false,
+    "MD033": false,
+    "MD036": false,
+    "MD040": false,
+    "MD041": false,
+    "MD046": false,
+    "MD051": false,
+    "MD034": false,
+    "MD060": false
+  },
+  "ignores": [
+    "node_modules/**",
+    "archive/**",
+    "**/dist/**",
+    "frontend/.next/**"
+  ]
+}

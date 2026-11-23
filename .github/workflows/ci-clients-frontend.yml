@@ -150,10 +150,22 @@ jobs:
           python -m pip install -e ../../packages/python pytest
           python -m pytest -q
 
+  markdown:
+    name: Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # Rules are set in .markdownlint-cli2.jsonc; the disabled ones are stylistic rules the
+      # existing documents break.
+      - run: npx --yes markdownlint-cli2@0.18.1 "**/*.md" "!**/node_modules/**" "!archive/**"
+
   required:
     name: Required checks
     if: always()
-    needs: [frontend, js-sdk, python-sdk, helm, compose, openapi, examples]
+    needs: [frontend, js-sdk, python-sdk, helm, compose, openapi, examples, markdown]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every job succeeded
@@ -165,4 +177,5 @@ jobs:
           [ "${{ needs.compose.result }}" = "success" ] || { echo "compose did not succeed"; exit 1; }
           [ "${{ needs.openapi.result }}" = "success" ] || { echo "openapi did not succeed"; exit 1; }
           [ "${{ needs.examples.result }}" = "success" ] || { echo "examples did not succeed"; exit 1; }
+          [ "${{ needs.markdown.result }}" = "success" ] || { echo "markdown did not succeed"; exit 1; }
           echo "all required checks passed"

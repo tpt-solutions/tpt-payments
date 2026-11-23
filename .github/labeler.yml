@@ -1,0 +1,35 @@
+# Labels applied by .github/workflows/labeler.yml from the files a pull request touches.
+area/core:
+  - changed-files:
+      - any-glob-to-any-file: "packages/tpt-pay-core/**"
+area/credit-chain:
+  - changed-files:
+      - any-glob-to-any-file: "packages/tpt-credit-chain/**"
+area/sdk-js:
+  - changed-files:
+      - any-glob-to-any-file: "packages/tpt-pay/**"
+area/sdk-python:
+  - changed-files:
+      - any-glob-to-any-file: "packages/python/**"
+area/cli:
+  - changed-files:
+      - any-glob-to-any-file: "packages/tpt-pay-core/cmd/tpt/**"
+area/frontend:
+  - changed-files:
+      - any-glob-to-any-file: "frontend/**"
+area/deploy:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "deploy/**"
+          - "docker-compose*.yml"
+area/ci:
+  - changed-files:
+      - any-glob-to-any-file: ".github/**"
+area/examples:
+  - changed-files:
+      - any-glob-to-any-file: "examples/**"
+area/docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "**/*.md"

@@ -1,6 +1,7 @@
 # LEGAL MEMORANDUM: Money Transmitter License Analysis
 
 > **Status: draft working analysis, pending counsel review.** This is not legal advice and must not be relied on without review by licensed counsel.
+>
 ## TPT Pay Bank-Sponsor Model
 
 **Date**: April 27, 2026
@@ -22,6 +23,7 @@ This analysis is based on published regulatory guidance and industry precedent f
 ## 1. United States: FinCEN Analysis
 
 ### 1.1 Legal Precedent
+
 This analysis relies on:
 - FinCEN Guidance FIN-2008-G001: Money Services Business Definitions
 - FinCEN Guidance FIN-2019-G001: Application of BSA Requirements to Certain Business Models
@@ -29,6 +31,7 @@ This analysis relies on:
 - Numerous no-action letters confirming bank agent exemption
 
 ### 1.2 Three Prong Test For Money Transmitter Status
+
 Under US law, an entity is a money transmitter only if it:
 1. ✅ Accepts currency or funds
 2. ✅ Transmits currency or funds
@@ -41,6 +44,7 @@ Under US law, an entity is a money transmitter only if it:
 - ✅ Bank agent exemption applies pursuant to 31 CFR § 1022.310(c)(3)
 
 ### 1.3 Entity Status Determination
+
 | Party | Money Transmitter Status | Rationale |
 |-------|---------------------------|-----------|
 | **Sponsor Bank** | ✅ Regulated | Exists under federal banking charter, not subject to MSB registration |
@@ -48,6 +52,7 @@ Under US law, an entity is a money transmitter only if it:
 | **Operator** | ❌ Not an MSB | Application layer only. All financial functions delegated to licensed bank. |
 
 ### 1.4 Edge Cases Requiring Registration
+
 An operator **will** require MSB/MTL only if they:
 - Hold user funds outside the sponsor bank custodial structure
 - Act as counterparty to transactions
@@ -59,6 +64,7 @@ An operator **will** require MSB/MTL only if they:
 ## 2. European Union: PSD2 Scope Analysis
 
 ### 2.1 Regulatory Framework
+
 Under Payment Services Directive 2 (Directive (EU) 2015/2366) regulated payment services include:
 1. Payment initiation services (PISP)
 2. Account information services (AISP)
@@ -67,6 +73,7 @@ Under Payment Services Directive 2 (Directive (EU) 2015/2366) regulated payment 
 5. Execution of payment transactions
 
 ### 2.2 Application To TPT Model
+
 TPT Platform does **not** fall within PSD2 scope because:
 - ❌ TPT does not initiate payment orders - orders are initiated directly by users via bank APIs
 - ❌ TPT does not access user account information - all authentication is bank side
@@ -76,6 +83,7 @@ TPT Platform does **not** fall within PSD2 scope because:
 ECB guidance confirms that "mere technical service providers who do not assume responsibility for the payment transaction are excluded from PSD2 scope".
 
 ### 2.3 Entity Status Determination
+
 | Party | PSD2 Status |
 |-------|-------------|
 | **Sponsor Bank** | ✅ Authorised Payment Institution |
@@ -87,9 +95,11 @@ ECB guidance confirms that "mere technical service providers who do not assume r
 ## 3. United Kingdom: FCA Analysis
 
 ### 3.1 Post-Brexit Regulatory Position
+
 Following UK exit from EU, FCA has retained substantially equivalent regulation under the Payment Services Regulations 2017.
 
 ### 3.2 Key Determinations
+
 - TPT Platform is excluded from payment institution registration per Regulation 11 - it provides only technical infrastructure and does not provide payment services
 - The fact that transactions are routed through TPT messaging layer does not make TPT a payment service provider
 - Operators are only required to register if they perform regulated payment services independent of the sponsor bank

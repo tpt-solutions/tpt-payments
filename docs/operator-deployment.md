@@ -3,6 +3,7 @@
 ## Prerequisites
 
 ### Required Infrastructure
+
 - Kubernetes 1.25+ cluster
 - kubectl configured with cluster access
 - Helm 3.10+
@@ -10,6 +11,7 @@
 - Ingress controller (nginx-ingress recommended)
 
 ### Optional Dependencies
+
 - External PostgreSQL 14+ (if not using bundled)
 - External Redis 7+ (if not using bundled)
 - External NATS 2.9+ (if not using bundled)
@@ -21,17 +23,20 @@
 ## Installation
 
 ### 1. Add Helm Repository
+
 ```bash
 helm repo add tpt-payments https://charts.tpt-payments.com
 helm repo update
 ```
 
 ### 2. Create Namespace
+
 ```bash
 kubectl create namespace tpt-payments
 ```
 
 ### 3. Configure Values
+
 Create `values.yaml` with your configuration:
 
 ```yaml
@@ -96,6 +101,7 @@ existingSecret: tpt-payments-secrets
 ```
 
 ### 4. Create Secrets
+
 ```bash
 kubectl create secret generic tpt-payments-secrets \
   --namespace tpt-payments \
@@ -106,6 +112,7 @@ kubectl create secret generic tpt-payments-secrets \
 ```
 
 ### 5. Install Chart
+
 ```bash
 helm install tpt-payments tpt-payments/tpt-payments \
   --namespace tpt-payments \
@@ -117,17 +124,20 @@ helm install tpt-payments tpt-payments/tpt-payments \
 ## First-Time Setup
 
 ### Database Migrations
+
 Migrations run automatically on first pod startup. Monitor pod logs:
 ```bash
 kubectl logs -f -n tpt-payments -l app.kubernetes.io/name=tpt-payments
 ```
 
 ### Default Admin User
+
 On first installation, an admin user is created:
 - **Email:** admin@tpt-payments.local
 - **Password:** View in pod logs on first run
 
 ### Verify Installation
+
 ```bash
 # Check pod status
 kubectl get pods -n tpt-payments
@@ -161,16 +171,19 @@ curl http://localhost:8080/health
 ## Upgrade Guide
 
 ### 1. Update Helm Repository
+
 ```bash
 helm repo update
 ```
 
 ### 2. Check Available Versions
+
 ```bash
 helm search repo tpt-payments --versions
 ```
 
 ### 3. Perform Upgrade
+
 ```bash
 helm upgrade tpt-payments tpt-payments/tpt-payments \
   --namespace tpt-payments \
@@ -179,6 +192,7 @@ helm upgrade tpt-payments tpt-payments/tpt-payments \
 ```
 
 ### 4. Verify Upgrade
+
 ```bash
 helm list -n tpt-payments
 kubectl rollout status deployment/tpt-payments -n tpt-payments
@@ -223,6 +237,7 @@ kubectl rollout status deployment/tpt-payments -n tpt-payments
 - Configure per-merchant rate limits in admin dashboard
 
 ### Support
+
 - Documentation: https://docs.tpt-payments.com
 - Issues: https://github.com/tpt-solutions/tpt-payments/issues
 - Community: https://github.com/tpt-solutions/tpt-payments/discussions

@@ -5,6 +5,7 @@
 ---
 
 ## Overview
+
 TPT Pay utilizes a **bank-sponsor model** which shifts primary regulatory liability to licensed financial institutions. This document explains how this model impacts regulatory obligations for the TPT Platform and individual operators.
 
 ---
@@ -14,6 +15,7 @@ TPT Pay utilizes a **bank-sponsor model** which shifts primary regulatory liabil
 ### United States (FinCEN)
 
 #### Bank-Sponsor Model Structure
+
 Under the TPT model:
 1. All fiat holdings remain at all times within custodial accounts held by the FDIC-insured sponsor bank
 2. Payment rails and settlement are operated exclusively by the sponsor bank
@@ -21,6 +23,7 @@ Under the TPT model:
 4. Operators act as application providers, not financial intermediaries
 
 #### MSB / MTL Status Determination
+
 | Entity | Money Transmitter Status | Rationale |
 |--------|--------------------------|-----------|
 | **Sponsor Bank** | ✅ Licensed | Already holds federal and state banking charters, fully regulated |
@@ -28,6 +31,7 @@ Under the TPT model:
 | **Operator** | ⚠️ Fact specific | *May* require registration if operator: <br>• Exercises custody over user funds<br>• Sets exchange rates independently<br>• Provides settlement services<br>• Acts as counterparty to transactions |
 
 #### Operator US Requirements
+
 ✅ Standard minimum for most operators:
 - FinCEN MSB registration is **NOT** required when running on TPT Pay bank-sponsor model
 - State MTL licensing is **NOT** required for pure application layer operators
@@ -41,6 +45,7 @@ Under the TPT model:
 ### European Union (PSD2)
 
 #### Scope Analysis
+
 Under EU Payment Services Directive 2:
 
 | Entity | Regulatory Classification | Obligations |
@@ -50,6 +55,7 @@ Under EU Payment Services Directive 2:
 | **Operator** | ⚠️ Case by case | PSD2 applies only if operator performs regulated payment activities. Pure frontend application providers are out of scope. |
 
 #### Operator EU Requirements
+
 ✅ Standard minimum:
 - No payment institution license required for TPT integrated operators
 - No e-money institution authorization required
@@ -64,6 +70,7 @@ Under EU Payment Services Directive 2:
 ### United Kingdom (FCA)
 
 #### Post-Brexit Regulatory Status
+
 | Entity | FCA Classification |
 |--------|---------------------|
 | **Sponsor Bank** | PRA Authorised Bank |
@@ -71,6 +78,7 @@ Under EU Payment Services Directive 2:
 | **Operator** | ⚠️ May require PI/EMI authorisation only if performing regulated activities outside the sponsored model |
 
 #### Operator UK Requirements
+
 ✅ Standard minimum:
 - No Payment Institution (PI) license required
 - No E-Money Institution (EMI) license required

@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+
 - Refunds: `POST /v1/refunds` and `GET /v1/refunds/{id}`, with partial refunds, a row-locked
   refundable balance, a ledger reversal per refund, and a `charge.refunded` webhook event.
 - Audit log: every successful state-changing `/v1` call writes an `audit_log` row (actor,
@@ -19,6 +20,7 @@ All notable changes to this project are documented here. The format follows
 - `.golangci.yml` for `packages/tpt-pay-core`, `CODEOWNERS`, and this changelog.
 
 ### Changed
+
 - The maximum amount is defined per currency in major units, so zero-decimal currencies do
   not get a 100x larger ceiling. `MaxAmount` is replaced by `MaxAmountFor(code)`.
 - `Ledger.Balance` returns the account's own currency and an error for an unknown account,
@@ -27,8 +29,10 @@ All notable changes to this project are documented here. The format follows
 - Version labels corrected to `0.1.0` in the Helm chart, the frontend, and the faucet.
 
 ### Fixed
+
 - Lint findings: unchecked response-body close, unchecked type assertion, error comparisons
   that fail on wrapped errors, and a deprecated time comparison in webhook verification.
 
 ### Security
+
 - Compliance and legal documents are labelled as drafts pending QSA or counsel review.
