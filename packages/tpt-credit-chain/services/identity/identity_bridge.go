@@ -26,9 +26,15 @@
 package identity
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"strings"
@@ -100,9 +106,13 @@ type BridgeConfig struct {
 	// Empty means all providers are accepted.
 	AllowedProviders []KYCProvider `json:"allowed_providers"`
 
-	// JWTSecret is the shared secret for verifying KYC provider JWTs.
-	// In production, this should be a public key for asymmetric verification.
+	// JWTSecret is the shared secret for verifying KYC provider JWTs (HS256). Development only.
 	JWTSecret string `json:"-"`
+
+	// JWTPublicKeyPEM is the KYC provider's public key (PEM, SPKI form: Ed25519, RSA or ECDSA).
+	// When set, only asymmetric signatures are accepted and JWTSecret must be empty. A verifier
+	// that holds only a public key cannot forge attestations, so this is the production setting.
+	JWTPublicKeyPEM string `json:"-"`
 
 	// MaxAttestationsPerDay is the maximum number of attestations per day.
 	// Set to 0 for unlimited.
@@ -124,6 +134,10 @@ func DefaultBridgeConfig() BridgeConfig {
 // BridgeClient provides KYC attestation utilities.
 type BridgeClient struct {
 	config BridgeConfig
+	// publicKey is the parsed JWTPublicKeyPEM, or nil in secret mode. keyErr records a key that
+	// did not parse; it is returned by every ProcessAttestation call.
+	publicKey crypto.PublicKey
+	keyErr    error
 
 	mu             sync.Mutex
 	dailyCount     int
@@ -134,19 +148,52 @@ type BridgeClient struct {
 	usedJTI map[string]time.Time
 }
 
+// ErrBothKeyKinds is returned when both an HMAC secret and a public key are configured.
+var ErrBothKeyKinds = errors.New("identity bridge: set either JWTSecret or JWTPublicKeyPEM, not both")
+
 // ErrNoJWTSecret is returned when attestations are processed without a configured secret.
 // The bridge never falls back to a default key: an unconfigured bridge accepts nothing.
-var ErrNoJWTSecret = errors.New("identity bridge has no JWT secret configured; attestations are refused")
+var ErrNoJWTSecret = errors.New("identity bridge has no JWT secret or public key configured; attestations are refused")
 
 // NewBridgeClient creates a new identity bridge client.
 func NewBridgeClient(config BridgeConfig) *BridgeClient {
-	return &BridgeClient{
+	bc := &BridgeClient{
 		config:         config,
 		dailyCount:     0,
 		currentDay:     time.Now().YearDay(),
 		attestationLog: make([]AttestationResult, 0),
 		usedJTI:        make(map[string]time.Time),
 	}
+	switch {
+	case config.JWTSecret != "" && config.JWTPublicKeyPEM != "":
+		bc.keyErr = ErrBothKeyKinds
+	case config.JWTPublicKeyPEM != "":
+		key, err := parsePublicKey(config.JWTPublicKeyPEM)
+		if err != nil {
+			bc.keyErr = fmt.Errorf("identity bridge: JWTPublicKeyPEM: %w", err)
+		} else {
+			bc.publicKey = key
+		}
+	}
+	return bc
+}
+
+// parsePublicKey reads a PEM public key in SPKI form. Only key types the verifier can use are
+// accepted, so a certificate or a private key is refused.
+func parsePublicKey(pemData string) (crypto.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pemData))
+	if block == nil || block.Type != "PUBLIC KEY" {
+		return nil, errors.New("expected a PEM block of type PUBLIC KEY")
+	}
+	key, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	switch key.(type) {
+	case ed25519.PublicKey, *rsa.PublicKey, *ecdsa.PublicKey:
+		return key, nil
+	}
+	return nil, fmt.Errorf("unsupported key type %T", key)
 }
 
 // ProcessAttestation processes a JWT attestation from a KYC provider.
@@ -166,11 +213,23 @@ func (bc *BridgeClient) ProcessAttestation(jwtToken string) (*AttestationResult,
 	}
 
 	// Parse the JWT token.
-	if bc.config.JWTSecret == "" {
+	if bc.keyErr != nil {
+		return nil, bc.keyErr
+	}
+	if bc.publicKey == nil && bc.config.JWTSecret == "" {
 		return nil, ErrNoJWTSecret
 	}
 	token, err := jwt.ParseWithClaims(jwtToken, &AttestationClaims{}, func(token *jwt.Token) (interface{}, error) {
-		// Only HMAC is accepted, and only with the configured secret.
+		if bc.publicKey != nil {
+			// Asymmetric mode: the algorithm must be an asymmetric one. An HMAC token is refused
+			// even if its signature would check out, so a public key cannot be used as a secret.
+			switch token.Method.(type) {
+			case *jwt.SigningMethodEd25519, *jwt.SigningMethodRSA, *jwt.SigningMethodECDSA:
+				return bc.publicKey, nil
+			}
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		// Secret mode: only HMAC, only with the configured secret.
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
