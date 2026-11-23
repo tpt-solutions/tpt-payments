@@ -51,6 +51,10 @@ jobs:
           cache: npm
           cache-dependency-path: packages/tpt-pay/package-lock.json
       - run: npm ci
+      - name: The generated types must match the served OpenAPI document
+        run: |
+          npm run generate
+          git diff --exit-code -- src/generated
       - run: npm run lint
       - run: npm test
       - run: npm run build

@@ -25,6 +25,8 @@ import type {
 
 export { TPTPayError, SignatureVerificationError } from './errors';
 export type * from './types';
+// The wire types generated from the served OpenAPI document. Regenerate with npm run generate.
+export type { components, paths, operations } from './generated/openapi';
 
 export const DEFAULT_API_BASE = 'https://api.tpt-payments.com/v1';
 

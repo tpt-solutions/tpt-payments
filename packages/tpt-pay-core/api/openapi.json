@@ -272,6 +272,27 @@
           }
         }
       }
+    },
+    "parameters": {
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": false,
+        "description": "A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours.",
+        "schema": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The object ID.",
+        "schema": {
+          "type": "string"
+        }
+      }
     }
   },
   "paths": {

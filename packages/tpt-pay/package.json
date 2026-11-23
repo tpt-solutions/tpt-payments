@@ -4,7 +4,12 @@
   "description": "TPT Pay API client for JavaScript and TypeScript (pre-release)",
   "license": "(MIT OR Apache-2.0)",
   "author": "TPT Solutions",
-  "keywords": ["payments", "tpt", "api", "sdk"],
+  "keywords": [
+    "payments",
+    "tpt",
+    "api",
+    "sdk"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tpt-solutions/tpt-payments.git",
@@ -47,17 +52,18 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "lint": "eslint src test --ext .ts",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "generate": "openapi-typescript ../tpt-pay-core/api/openapi.json -o src/generated/openapi.ts"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.6",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^8.72.2",
-    "eslint": "^10.15.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
     "jest": "^30.5.2",
     "ts-jest": "^29.1.2",
-    "tsup": "^9.0.0",
-    "typescript": "^7.0.2"
+    "tsup": "^8.5.1",
+    "typescript": "5.9.3"
   }
 }
