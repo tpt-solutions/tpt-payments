@@ -17,3 +17,19 @@ keywords:
   - fintech
   - billing
   - subscriptions
+
+# Bundled dependencies are optional and off by default. Production should point
+# database.existingSecret at a managed PostgreSQL instance.
+dependencies:
+  - name: postgresql
+    version: 18.12.25
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: 28.3.15
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: nats
+    version: 2.15.3
+    repository: https://nats-io.github.io/k8s/helm/charts/
+    condition: nats.enabled

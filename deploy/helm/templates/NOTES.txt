@@ -22,14 +22,15 @@
 {{- end }}
 
 2. First time setup:
-   - Database migrations will run automatically on first start
-   - Default admin credentials will be printed to logs
-   - Access the health check at /health endpoint
+   - The service does not create an admin login. Create the first merchant and API keys with the
+     bootstrap command (cmd/bootstrap) against the database before sending traffic.
+   - The chart does not run migrations. Apply the SQL files in packages/tpt-pay-core/migrations to the
+     database before the first start (the server does not migrate on start, and the image has no psql).
+   - Health: /health (liveness), /readyz (readiness, pings the database), /metrics (Prometheus).
 
-3. Default credentials:
-   Username: admin@tpt-payments.local
-   Password: (see pod logs on first start)
+3. Secrets:
+   - The DATABASE_URL Secret is created from database.password, or read from database.existingSecret.
+   - Production deployments should set database.existingSecret and manage the Secret outside Helm.
 
 4. Documentation:
    - OpenAPI spec available at /openapi.json
-   - Full documentation at https://docs.tpt-payments.com

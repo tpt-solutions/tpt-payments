@@ -1,3 +1,5 @@
+# DEVELOPMENT ONLY. The defaults below are for a local laptop. Override them with variables in a
+# .env file next to this file. Never run this file against real data or on a shared host.
 name: tpt-platform
 
 services:
@@ -6,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: tptpay
-      POSTGRES_PASSWORD: tptpay
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tptpay}
       POSTGRES_DB: tptpay
     ports:
       - "5432:5432"
@@ -52,7 +54,7 @@ services:
     cap_add:
       - IPC_LOCK
     environment:
-      VAULT_DEV_ROOT_TOKEN_ID: dev-root-token
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_TOKEN:-dev-root-token}
       VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
     ports:
       - "8200:8200"
@@ -63,7 +65,7 @@ services:
       retries: 10
 
   migrate:
-    image: arigaio/atlas:latest
+    image: arigaio/atlas:1.4.0
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,7 +74,7 @@ services:
     command: >
       migrate apply
         --dir "file:///migrations"
-        --url "postgres://tptpay:tptpay@postgres:5432/tptpay?sslmode=disable"
+        --url "postgres://tptpay:${POSTGRES_PASSWORD:-tptpay}@postgres:5432/tptpay?sslmode=disable"
     restart: "no"
 
   tpt-pay-core:
@@ -92,10 +94,10 @@ services:
     env_file:
       - packages/tpt-pay-core/.env
     environment:
-      DATABASE_URL: "postgres://tptpay:tptpay@postgres:5432/tptpay?sslmode=disable"
+      DATABASE_URL: "postgres://tptpay:${POSTGRES_PASSWORD:-tptpay}@postgres:5432/tptpay?sslmode=disable"
       NATS_URL: "nats://nats:4222"
       VAULT_ADDR: "http://vault:8200"
-      VAULT_TOKEN: "dev-root-token"
+      VAULT_TOKEN: "${VAULT_DEV_TOKEN:-dev-root-token}"
     ports:
       - "8080:8080"
     volumes:

@@ -19,29 +19,60 @@ spec:
       {{- end }}
       labels:
         {{- include "tpt-payments.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tpt-payments.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
           env:
             - name: DATABASE_URL
-              value: postgres://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "tpt-payments.postgresql.fullname" . }}:5432/{{ .Values.postgresql.auth.database }}?sslmode=disable
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tpt-payments.secretName" . }}
+                  key: DATABASE_URL
             - name: REDIS_URL
               value: redis://{{ include "tpt-payments.redis.fullname" . }}:6379
             - name: NATS_URL
               value: nats://{{ include "tpt-payments.nats.fullname" . }}:4222
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health
               port: http
           readinessProbe:
             httpGet:
-              path: /health
+              path: /readyz
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

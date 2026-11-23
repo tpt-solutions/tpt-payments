@@ -14,16 +14,28 @@ fullnameOverride: ""
 
 serviceAccount:
   create: true
-  automount: true
+  automount: false
   annotations: {}
   name: ""
 
 podAnnotations: {}
 podLabels: {}
 
-podSecurityContext: {}
+# Pod hardening. The image is distroless and runs as the nonroot user (65532).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
 
-securityContext: {}
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
 
 service:
   type: ClusterIP
@@ -60,32 +72,44 @@ tolerations: []
 
 affinity: {}
 
-# Database configuration
+# Database connection. Exactly one of these must be set:
+#   password:        the chart creates a Secret with DATABASE_URL built from it
+#   existingSecret:  name of a Secret you manage, with a DATABASE_URL key (recommended)
+database:
+  password: ""
+  existingSecret: ""
+  # require is the default. Use verify-full with a CA bundle for production.
+  sslmode: require
+
+# Bundled PostgreSQL (dev and evaluation only). Set auth.password here, to the same value as
+# database.password, and set auth.existingSecret to avoid storing it in values.
 postgresql:
-  enabled: true
+  enabled: false
   auth:
     username: tpt_payments
-    password: tpt_payments
     database: tpt_payments
+    password: ""
+    existingSecret: ""
 
-# Redis configuration
+# Bundled Redis (dev and evaluation only).
 redis:
-  enabled: true
+  enabled: false
   architecture: standalone
   auth:
     enabled: false
 
-# NATS configuration
+# Bundled NATS with JetStream (dev and evaluation only). The webhook transport that uses it is
+# not built yet, so this can stay disabled.
 nats:
-  enabled: true
-  nats:
+  enabled: false
+  config:
     jetstream:
       enabled: true
       fileStore:
-        enabled: true
-        size: 10Gi
+        pvc:
+          size: 10Gi
 
-# Environment configuration
+# Environment configuration (non-secret). Keys here are passed to the container as-is.
 env:
   LOG_LEVEL: info
-  API_RATE_LIMIT: 100
+  API_RATE_LIMIT: "100"

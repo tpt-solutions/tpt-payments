@@ -13,7 +13,7 @@ docker compose -f docker-compose.monitoring.yml up -d
 
 | Service      | URL                                    | Credentials              |
 |--------------|----------------------------------------|--------------------------|
-| Grafana      | http://localhost:3001                   | admin / tptcredit2026    |
+| Grafana      | http://localhost:3001                   | admin / `$GRAFANA_ADMIN_PASSWORD` (required, set it in the environment) |
 | Prometheus   | http://localhost:9090                   | (no auth)                |
 | Node Exporter| http://localhost:9100                   | (no auth)                |
 
