@@ -93,7 +93,7 @@ export class TPTPay {
       }),
   };
 
-  /** Planned: not yet served by the core service. Calls fail with 404 until implemented. */
+  /** Served by POST /v1/refunds in the core service. */
   readonly refunds = {
     create: (params: { payment_intent: string; amount?: number; reason?: string }, options?: RequestOptions): Promise<Refund> =>
       this.request<Refund>('POST', '/refunds', { body: params, secret: true, options }),
