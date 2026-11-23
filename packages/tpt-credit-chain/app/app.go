@@ -402,8 +402,18 @@ func (app *App) Start() error {
 		return fmt.Errorf("chain is already running")
 	}
 	app.started = true
+	// Resume from the state file when there is one. A file that cannot be read or belongs
+	// to another chain stops startup, rather than starting from genesis by mistake.
+	restored, err := app.loadState()
+	if err != nil {
+		app.mu.Unlock()
+		return fmt.Errorf("load chain state: %w", err)
+	}
 	app.mu.Unlock()
 
+	if restored {
+		fmt.Printf("Restored chain state at block height %d\n", app.BlockHeight)
+	}
 	fmt.Printf("Chain started at block height %d (chain ID: %s)\n", app.BlockHeight, app.ChainID)
 	fmt.Printf("Block interval: %s\n", app.blockInterval)
 	fmt.Printf("Reserve address: %s\n", DefaultReserveAddress)
@@ -439,6 +449,17 @@ func (app *App) Start() error {
 			// blocks are produced and Start returns an error, so the process exits non-zero.
 			if broken, msg := app.CheckInvariants(); broken {
 				haltErr := fmt.Errorf("invariant broken at block %d: %s", height, msg)
+				app.halted = haltErr
+				app.mu.Unlock()
+				fmt.Printf("HALTING: %v\n", haltErr)
+				app.shutdownMetricsServer()
+				return haltErr
+			}
+
+			// Persist the block. A node that cannot write its state must not keep producing
+			// blocks it could lose, so a failed save halts the chain.
+			if err := app.saveState(); err != nil {
+				haltErr := fmt.Errorf("persist state at block %d: %w", height, err)
 				app.halted = haltErr
 				app.mu.Unlock()
 				fmt.Printf("HALTING: %v\n", haltErr)

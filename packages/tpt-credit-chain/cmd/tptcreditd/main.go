@@ -94,6 +94,13 @@ func InitCmd() *cobra.Command {
 				}
 			}
 
+			if overwrite {
+				// A replaced genesis must not resume the state of the chain it replaces.
+				if err := app.RemoveState(home); err != nil {
+					return err
+				}
+			}
+
 			chainID, _ := cmd.Flags().GetString("chain-id")
 			if chainID == "" {
 				chainID = "tpt-credit-devnet-1"
