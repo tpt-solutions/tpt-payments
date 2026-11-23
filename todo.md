@@ -65,7 +65,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 - [~] `make quickstart`: copy `.env`, compose up, migrate in-container, seed test merchant + `sk_test_` key, print first-payment curl; cross-platform (no `SHELL := /bin/bash`). Done: `cmd/quickstart` (Go, unit-tested) does the steps; `make quickstart` calls it; the SHELL override is gone. Not verified end to end (no Docker daemon here). Migrations still run through the Atlas service, which is open in §1 item 7
 - [~] README "first payment in 5 minutes" (create → confirm → capture, webhook receive). Done: create → confirm, with curl. Open: capture and webhook receive
 - [x] Documented test cards / magic values, test vs live keys (README table checked against the sandbox)
-- [ ] `examples/`: node-express-checkout, python-fastapi-webhooks, go-minimal, nextjs-checkout, subscription-billing, webhook-receiver (verification in each language); CI smoke job for each
+- [~] `examples/`: done: `node-webhook-receiver` (verification tested, 7 cases). Open: node-express-checkout, python-fastapi-webhooks, go-minimal, nextjs-checkout, subscription-billing, webhook-receiver (verification in each language); CI smoke job for each
 - [ ] `templates/` + `npx create-tpt-pay-app` scaffolder
 - [ ] Stripe migration guide + `base_url` shim; publish compatibility report
 - [ ] `tpt` CLI: `login`, `listen --forward-to`, `trigger`, `logs`, `keys create`
