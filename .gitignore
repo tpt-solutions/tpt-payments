@@ -39,3 +39,6 @@ packages/python/dist/
 *.swp
 .DS_Store
 Thumbs.db
+
+# TypeScript incremental build info
+*.tsbuildinfo
