@@ -114,7 +114,7 @@ Nothing below deletes a promised feature. Every promise stays and becomes a buil
 
 ## 9. Innovative additions
 - [ ] Test clocks for subscriptions; time-travel sandbox
-- [ ] Scenario-based sandbox: failure injection (latency, timeouts, issuer decline codes), `pm_test_*` tokens, chaos mode
+- [~] Scenario-based sandbox: failure injection (latency, timeouts, issuer decline codes), `pm_test_*` tokens, chaos. Done: scripted magic payment methods (`pm_card_declined`, `pm_card_insufficient_funds`, `pm_card_expired`, `pm_card_cvc_incorrect`, `pm_card_network_error`, `pm_card_slow`) in `internal/adapter/sandbox/scenarios.go`, documented in the README; the slow scenario honours the deadline. Open: `pm_test_*` naming, chaos mode, time-based failure windows mode
 - [ ] Webhook replay and inspector (persistent event log, redelivery, local tunnel in CLI)
 - [ ] Ledger reconciliation job; Merkle-anchored checkpoints; exportable audit packs
 - [ ] SDK idempotency and retry advisor (auto keys, backoff)

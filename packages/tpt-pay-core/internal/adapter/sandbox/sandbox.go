@@ -87,6 +87,11 @@ func (s *Sandbox) Authorize(ctx context.Context, req adapter.AuthRequest) (*adap
 		}
 	}
 
+	// Scripted outcome for a magic payment method (see scenarios.go).
+	if handled, err := applyScenario(ctx, req.PaymentMethodID); handled {
+		return nil, err
+	}
+
 	// Card-number-based decline simulation.
 	if err := s.declineForCard(req.PaymentMethodID); err != nil {
 		return nil, err

@@ -107,6 +107,12 @@ as `payment_method` to get that outcome:
 | `payment_method` | Result |
 |---|---|
 | `pm_card_visa` (or any other value) | Approved |
+| `pm_card_declined` | Declined (`card_declined`) |
+| `pm_card_insufficient_funds` | Declined (`insufficient_funds`) |
+| `pm_card_expired` | Declined (`expired_card`) |
+| `pm_card_cvc_incorrect` | Declined (`incorrect_cvc`) |
+| `pm_card_network_error` | Network error: the outcome is unknown, and the intent is left for reconciliation |
+| `pm_card_slow` | Approved after 2 seconds (exercises client timeouts) |
 | `4000000000000002` | Declined (`card_declined`) |
 | `4000000000009995` | Declined (`insufficient_funds`) |
 | `4000000000000069` | Declined (`expired_card`) |
