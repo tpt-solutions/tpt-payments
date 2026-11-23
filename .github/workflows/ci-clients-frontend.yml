@@ -128,10 +128,32 @@ jobs:
           print("OpenAPI", spec["openapi"], "version", spec["info"]["version"], "paths", len(spec["paths"]))
           PY
 
+  examples:
+    name: Examples (webhook receivers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Node receiver (the SDK must be built first)
+        working-directory: packages/tpt-pay
+        run: npm ci && npm run build
+      - working-directory: examples/node-webhook-receiver
+        run: npm install && npm test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python receiver
+        working-directory: examples/python-webhook-receiver
+        run: |
+          python -m pip install -e ../../packages/python pytest
+          python -m pytest -q
+
   required:
     name: Required checks
     if: always()
-    needs: [frontend, js-sdk, python-sdk, helm, compose, openapi]
+    needs: [frontend, js-sdk, python-sdk, helm, compose, openapi, examples]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every job succeeded
@@ -142,4 +164,5 @@ jobs:
           [ "${{ needs.helm.result }}" = "success" ] || { echo "helm did not succeed"; exit 1; }
           [ "${{ needs.compose.result }}" = "success" ] || { echo "compose did not succeed"; exit 1; }
           [ "${{ needs.openapi.result }}" = "success" ] || { echo "openapi did not succeed"; exit 1; }
+          [ "${{ needs.examples.result }}" = "success" ] || { echo "examples did not succeed"; exit 1; }
           echo "all required checks passed"
