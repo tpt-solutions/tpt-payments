@@ -45,7 +45,7 @@ Planned (not yet in the repo): wallets (PWA, native, shared core), chain explore
 | API keys & auth | **Alpha** (scope enforcement pending) | todo §1 |
 | Webhook signing (HMAC-SHA256, Stripe-style) | **Alpha** | todo §1 |
 | Webhook delivery (NATS JetStream, retries) | **Planned** | todo §2 |
-| Rate limiting (Redis) | **Planned** | todo §2 |
+| Rate limiting (Redis, per API key) | **Alpha** (unit-tested against miniredis; not yet run against a real Redis in CI) | todo §2 |
 | Secret encryption (Vault / KMS) | **Planned** | todo §2 |
 | Sandbox card adapter | **Alpha** | todo §9 |
 | `BankSponsorAdapter` / `DirectAcquiringAdapter` | **Planned** | todo §9 |
