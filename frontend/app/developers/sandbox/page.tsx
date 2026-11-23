@@ -59,7 +59,7 @@ export default function SandboxPage() {
               <div>
                 <h3 className="font-semibold text-blue-900">Use Sandbox API Endpoint</h3>
                 <p className="text-sm text-blue-800 mt-1">
-                  Point your integration to <code className="bg-blue-100 px-1 rounded">https://api-sandbox.tpt-payments.com/v1</code>
+                  Point your integration to <code className="bg-blue-100 px-1 rounded">https://api.tpt-payments.com/v1</code>
                 </p>
               </div>
             </div>

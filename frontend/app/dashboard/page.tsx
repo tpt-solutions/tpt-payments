@@ -179,7 +179,7 @@ export default function DashboardPage() {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "var(--radius)",
                 }}
-                formatter={(value: number) => [`$${(value / 100).toLocaleString()}`, "Volume"]}
+                formatter={(value) => [`$${(Number(value) / 100).toLocaleString()}`, "Volume"]}
               />
               <Area
                 type="monotone"

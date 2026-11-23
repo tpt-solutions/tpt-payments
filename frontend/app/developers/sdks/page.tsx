@@ -3,9 +3,11 @@ import { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'SDKs & Code Samples - TPT Pay Developer Portal',
-  description: 'JavaScript, Python, and curl examples for all API endpoints',
+  description: 'JavaScript, Python, and curl examples for the payment intent and refund endpoints',
 };
 
+// Every sample below matches the published SDK surface in packages/tpt-pay (JavaScript) and
+// packages/python (Python), and the routes served by packages/tpt-pay-core.
 const codeSamples = [
   {
     title: 'JavaScript/TypeScript',
@@ -16,117 +18,106 @@ const codeSamples = [
         label: 'Create a Payment Intent',
         code: `import TPTPay from '@tpt/pay';
 
-const tpt = new TPTPay('pk_test_...');
+const tpt = new TPTPay({ apiKey: process.env.TPT_SECRET_KEY! }); // sk_test_... or sk_live_...
 
 const paymentIntent = await tpt.paymentIntents.create({
-  amount: 2000,
+  amount: 2000,        // minor units: 2000 = $20.00
   currency: 'usd',
-  payment_method_types: ['card'],
-  metadata: {
-    order_id: '12345'
-  }
+  capture_method: 'manual',
 });
 
 console.log(paymentIntent.id);
-console.log(paymentIntent.client_secret);`,
+console.log(paymentIntent.status);`,
       },
       {
         label: 'Confirm a Payment Intent',
-        code: `const paymentIntent = await tpt.paymentIntents.confirm(
-  'pi_3MtwB2eZvKYlo2C2eZvKYlo',
-  {
-    payment_method: 'pm_card_visa',
-  }
-);
+        code: `const paymentIntent = await tpt.paymentIntents.confirm('pi_3MtwB2eZvKYlo2C2eZvKYlo', {
+  payment_method: 'pm_card_visa',
+});
 
-if (paymentIntent.status === 'succeeded') {
-  console.log('Payment succeeded!');
+if (paymentIntent.status === 'requires_capture') {
+  await tpt.paymentIntents.capture(paymentIntent.id);
 }`,
       },
       {
         label: 'Create a Refund',
         code: `const refund = await tpt.refunds.create({
   payment_intent: 'pi_3MtwB2eZvKYlo2C2eZvKYlo',
-  amount: 1000, // Partial refund
+  amount: 1000, // partial refund, in minor units
 });
 
 console.log(refund.status);`,
       },
       {
         label: 'Webhook Signature Verification',
-        code: `const express = require('express');
+        code: `const { constructEvent, SignatureVerificationError } = require('@tpt/pay/webhooks');
+const express = require('express');
 const app = express();
 
-app.post('/webhook', express.raw({type: 'application/json'}), (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  const event = tpt.webhooks.constructEvent(
-    req.body,
-    sig,
-    'whsec_...'
-  );
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  let event;
+  try {
+    // Pass the raw body. Parsed JSON will not verify.
+    event = constructEvent(req.body, req.headers['tpt-signature'], process.env.WEBHOOK_SECRET);
+  } catch (err) {
+    if (err instanceof SignatureVerificationError) return res.status(400).end();
+    throw err;
+  }
 
-  // Handle the event
   switch (event.type) {
     case 'payment_intent.succeeded':
-      const paymentIntent = event.data.object;
-      console.log('Payment succeeded:', paymentIntent.id);
+      console.log('Payment succeeded:', event.data.object.id);
       break;
     default:
       console.log(\`Unhandled event type \${event.type}\`);
   }
 
-  res.json({received: true});
+  res.json({ received: true });
 });`,
       },
     ],
   },
   {
     title: 'Python',
-    package: 'tpt-pay',
-    install: 'pip install tpt-pay',
+    package: 'tpt-payments',
+    install: 'pip install tpt-payments',
     examples: [
       {
-        label: 'Create a Payment Intent',
-        code: `import tpt_pay
-
-tpt = tpt_pay.TPTPay('pk_test_...')
-
-payment_intent = tpt.PaymentIntent.create(
-    amount=2000,
-    currency='usd',
-    payment_method_types=['card'],
-    metadata={'order_id': '12345'}
-)
-
-print(payment_intent.id)
-print(payment_intent.client_secret)`,
-      },
-      {
-        label: 'Confirm a Payment Intent',
-        code: `payment_intent = tpt.PaymentIntent.confirm(
-    'pi_3MtwB2eZvKYlo2C2eZvKYlo',
-    payment_method='pm_card_visa'
-)
-
-if payment_intent.status == 'succeeded':
-    print('Payment succeeded!')`,
-      },
-      {
-        label: 'Async Usage',
+        label: 'Create and Confirm a Payment Intent',
         code: `import asyncio
-import tpt_pay
+from tpt_payments import TPTPay
 
-async def create_payment():
-    tpt = tpt_pay.TPTPay('pk_test_...')
-    
-    payment_intent = await tpt.PaymentIntent.create_async(
-        amount=2000,
-        currency='usd'
+async def main():
+    async with TPTPay("sk_test_...") as client:
+        intent = await client.payment_intents.create(
+            amount=2000,
+            currency="usd",
+            capture_method="manual",
+        )
+        intent = await client.payment_intents.confirm(
+            intent["id"], payment_method="pm_card_visa"
+        )
+        print(intent["id"], intent["status"])
+
+asyncio.run(main())`,
+      },
+      {
+        label: 'Create a Refund',
+        code: `async with TPTPay("sk_test_...") as client:
+    refund = await client.refunds.create(
+        payment_intent="pi_3MtwB2eZvKYlo2C2eZvKYlo",
+        amount=1000,
     )
-    
-    print(payment_intent.id)
+    print(refund["status"])`,
+      },
+      {
+        label: 'Webhook Signature Verification',
+        code: `from tpt_payments import construct_event, SignatureVerificationError
 
-asyncio.run(create_payment())`,
+try:
+    event = construct_event(raw_body, request.headers["TPT-Signature"], WEBHOOK_SECRET)
+except SignatureVerificationError:
+    return 400  # pass the raw bytes, not re-serialized JSON`,
       },
     ],
   },
@@ -135,23 +126,23 @@ asyncio.run(create_payment())`,
     examples: [
       {
         label: 'Create a Payment Intent',
-        code: `curl -X POST https://api-sandbox.tpt-payments.com/v1/payment_intents \\
+        code: `curl -X POST https://api.tpt-payments.com/v1/payment_intents \\
   -H "Authorization: Bearer sk_test_..." \\
   -H "Content-Type: application/json" \\
   -d '{
     "amount": 2000,
     "currency": "usd",
-    "payment_method_types": ["card"]
+    "capture_method": "manual"
   }'`,
       },
       {
         label: 'Retrieve a Payment Intent',
-        code: `curl -X GET https://api-sandbox.tpt-payments.com/v1/payment_intents/pi_3MtwB2eZvKYlo2C2eZvKYlo \\
+        code: `curl -X GET https://api.tpt-payments.com/v1/payment_intents/pi_3MtwB2eZvKYlo2C2eZvKYlo \\
   -H "Authorization: Bearer sk_test_..."`,
       },
       {
         label: 'Create a Refund',
-        code: `curl -X POST https://api-sandbox.tpt-payments.com/v1/refunds \\
+        code: `curl -X POST https://api.tpt-payments.com/v1/refunds \\
   -H "Authorization: Bearer sk_test_..." \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -170,7 +161,8 @@ export default function SDKsPage() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900">SDKs & Code Samples</h1>
           <p className="mt-4 text-lg text-gray-600">
-            JavaScript, Python, and curl examples for all API endpoints.
+            JavaScript, Python, and curl examples for payment intents, refunds, and webhooks. Subscriptions
+            and invoices are not served yet.
           </p>
         </div>
 
@@ -181,18 +173,14 @@ export default function SDKsPage() {
                 <h2 className="text-2xl font-bold text-gray-900">{sdk.title}</h2>
                 {sdk.package && (
                   <div className="mt-2 flex items-center gap-4">
-                    <code className="text-sm bg-gray-100 px-3 py-1 rounded">
-                      {sdk.install}
-                    </code>
+                    <code className="text-sm bg-gray-100 px-3 py-1 rounded">{sdk.install}</code>
                   </div>
                 )}
               </div>
               <div className="p-6 space-y-6">
                 {sdk.examples.map((example, idx) => (
                   <div key={idx}>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">
-                      {example.label}
-                    </h3>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">{example.label}</h3>
                     <pre className="bg-gray-900 text-gray-100 p-4 rounded-md overflow-x-auto text-sm">
                       {example.code}
                     </pre>
