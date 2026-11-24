@@ -38,7 +38,7 @@ jobs:
         run: go test -count=1 -race -short -coverprofile=coverage.out -covermode=atomic ./packages/tpt-pay-core/...
       - name: Coverage summary
         run: go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: pay-core-coverage
           path: coverage.out
