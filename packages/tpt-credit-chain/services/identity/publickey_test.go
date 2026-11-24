@@ -116,3 +116,53 @@ func TestPublicKey_BadOrDoubledConfigurationIsReported(t *testing.T) {
 	_, err = NewBridgeClient(both).ProcessAttestation("x.y.z")
 	assert.ErrorIs(t, err, ErrBothKeyKinds)
 }
+
+// During a key rotation both the old and the new key are configured as PEM blocks in one value.
+// An attestation signed by either verifies; one signed by a key that is not listed does not.
+func TestPublicKey_RotationAcceptsEitherConfiguredKey(t *testing.T) {
+	oldPub, oldPriv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	newPub, newPriv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	_, strayPriv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	cfg := DefaultBridgeConfig()
+	cfg.JWTPublicKeyPEM = publicPEM(t, oldPub) + publicPEM(t, newPub)
+	bc := NewBridgeClient(cfg)
+
+	fromOld, err := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claimsFor("jti-rot-old")).SignedString(oldPriv)
+	require.NoError(t, err)
+	_, err = bc.ProcessAttestation(fromOld)
+	require.NoError(t, err, "a token from the retiring key still verifies during rotation")
+
+	fromNew, err := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claimsFor("jti-rot-new")).SignedString(newPriv)
+	require.NoError(t, err)
+	_, err = bc.ProcessAttestation(fromNew)
+	require.NoError(t, err, "a token from the new key verifies")
+
+	stray, err := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claimsFor("jti-rot-stray")).SignedString(strayPriv)
+	require.NoError(t, err)
+	_, err = bc.ProcessAttestation(stray)
+	require.Error(t, err, "a key that is not configured is refused")
+}
+
+// A rotation value is only as good as its parsing: a block that is not a key, or stray data after
+// the last block, is reported rather than silently dropping a key.
+func TestPublicKey_MalformedRotationValueIsReported(t *testing.T) {
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	good := publicPEM(t, pub)
+
+	cases := map[string]string{
+		"trailing junk after a key": good + "not-a-pem-block\n",
+		"a certificate block":       "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n",
+	}
+	for name, value := range cases {
+		cfg := DefaultBridgeConfig()
+		cfg.JWTPublicKeyPEM = value
+		_, err := NewBridgeClient(cfg).ProcessAttestation("header.payload.sig")
+		require.Error(t, err, name)
+		assert.Contains(t, err.Error(), "JWTPublicKeyPEM", name)
+	}
+}

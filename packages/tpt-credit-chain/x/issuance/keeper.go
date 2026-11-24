@@ -73,6 +73,25 @@ func validateAccountFields(address, identityUUID string) error {
 	return nil
 }
 
+// validAccountRef rejects a malformed address before any lookup, so callers get a format error
+// rather than a misleading "not found". A well-formed address that is not registered still fails
+// as "not found".
+func validAccountRef(role, addr string) error {
+	if len(addr) > MaxAddressLen || !bech32Regex.MatchString(addr) {
+		return fmt.Errorf("%s address %q is not a valid bech32 address", role, addr)
+	}
+	return nil
+}
+
+// validAmount rejects an amount that is unset, zero or negative. An unset math.Int has no value to
+// compare, so it must be caught before any arithmetic touches it.
+func validAmount(amount math.Int) error {
+	if amount.IsNil() || amount.IsNegative() || amount.IsZero() {
+		return fmt.Errorf("transfer amount must be positive")
+	}
+	return nil
+}
+
 // findAccountIndex returns the index of the account with the given address,
 // or -1 if not found.
 func (k *Keeper) findAccountIndex(address string) int {
@@ -255,6 +274,9 @@ func (k *Keeper) BeginBlock(height int64) []CreditsIssuedEvent {
 // The NextDueAt is recomputed from the current block height so the new
 // frequency takes effect after the next block interval.
 func (k *Keeper) UpdatePayoutFrequency(address string, newFreq PayoutFrequency) (FrequencyUpdatedEvent, error) {
+	if err := validAccountRef("account", address); err != nil {
+		return FrequencyUpdatedEvent{}, err
+	}
 	idx := k.findAccountIndex(address)
 	if idx == -1 {
 		return FrequencyUpdatedEvent{}, fmt.Errorf("account %q not found", address)
@@ -292,6 +314,12 @@ func (k *Keeper) UpdatePayoutFrequency(address string, newFreq PayoutFrequency) 
 // Validates sender balance and recipient existence.
 // Enforces the MaxBalanceUcredit cap on the recipient.
 func (k *Keeper) SendCredits(from, to string, amount math.Int) (CreditsTransferredEvent, error) {
+	if err := validAccountRef("sender", from); err != nil {
+		return CreditsTransferredEvent{}, err
+	}
+	if err := validAccountRef("recipient", to); err != nil {
+		return CreditsTransferredEvent{}, err
+	}
 	fromIdx := k.findAccountIndex(from)
 	if fromIdx == -1 {
 		return CreditsTransferredEvent{}, fmt.Errorf("sender account %q not found", from)
@@ -310,8 +338,8 @@ func (k *Keeper) SendCredits(from, to string, amount math.Int) (CreditsTransferr
 		return CreditsTransferredEvent{}, fmt.Errorf("cannot send credits to self")
 	}
 
-	if amount.IsNegative() || amount.IsZero() {
-		return CreditsTransferredEvent{}, fmt.Errorf("transfer amount must be positive")
+	if err := validAmount(amount); err != nil {
+		return CreditsTransferredEvent{}, err
 	}
 
 	sender := &k.accounts[fromIdx]
@@ -369,6 +397,9 @@ func (k *Keeper) SendCredits(from, to string, amount math.Int) (CreditsTransferr
 // BatchSend sends credits to multiple recipients in one transaction.
 // All transfers are atomic: if any fails, none are executed.
 func (k *Keeper) BatchSend(from string, entries []BatchSendEntry) (BatchSendEvent, error) {
+	if err := validAccountRef("sender", from); err != nil {
+		return BatchSendEvent{}, err
+	}
 	fromIdx := k.findAccountIndex(from)
 	if fromIdx == -1 {
 		return BatchSendEvent{}, fmt.Errorf("sender account %q not found", from)
@@ -395,6 +426,9 @@ func (k *Keeper) BatchSend(from string, entries []BatchSendEntry) (BatchSendEven
 		if entry.To == "" {
 			return BatchSendEvent{}, fmt.Errorf("entry %d: to address cannot be empty", i)
 		}
+		if err := validAccountRef("recipient", entry.To); err != nil {
+			return BatchSendEvent{}, fmt.Errorf("entry %d: %w", i, err)
+		}
 		if entry.To == from {
 			return BatchSendEvent{}, fmt.Errorf("entry %d: cannot send credits to self", i)
 		}
@@ -407,8 +441,8 @@ func (k *Keeper) BatchSend(from string, entries []BatchSendEntry) (BatchSendEven
 		if toIdx == -1 {
 			return BatchSendEvent{}, fmt.Errorf("entry %d: recipient account %q not found; must be registered", i, entry.To)
 		}
-		if entry.Amount.IsNegative() || entry.Amount.IsZero() {
-			return BatchSendEvent{}, fmt.Errorf("entry %d: transfer amount must be positive", i)
+		if err := validAmount(entry.Amount); err != nil {
+			return BatchSendEvent{}, fmt.Errorf("entry %d: %w", i, err)
 		}
 
 		totalAmount = totalAmount.Add(entry.Amount)

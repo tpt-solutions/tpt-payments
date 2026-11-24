@@ -57,6 +57,9 @@ func (m *MockEventBus) EmitBatchSend(event issuance.BatchSendEvent) {
 const testAddr1 = "cosmos1qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqf0d5g9"
 const testAddr2 = "cosmos1qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqg7f8d8"
 const testAddr3 = "cosmos1qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqp8n9e7"
+
+// unknownAddr is well formed but never registered in these tests.
+const unknownAddr = "cosmos1qyqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqzzzzzz"
 const testUUID1 = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b0"
 const testUUID2 = "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1bc00"
 const testUUID3 = "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1bcd000"
@@ -741,7 +744,7 @@ func TestUpdatePayoutFrequency_Success(t *testing.T) {
 // TestUpdatePayoutFrequency_AccountNotFound verifies error on unknown account.
 func TestUpdatePayoutFrequency_AccountNotFound(t *testing.T) {
 	k := issuance.NewKeeper()
-	_, err := k.UpdatePayoutFrequency("nonexistent", issuance.FrequencyMonthly)
+	_, err := k.UpdatePayoutFrequency(unknownAddr, issuance.FrequencyMonthly)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -948,7 +951,7 @@ func TestSendCredits_Success(t *testing.T) {
 func TestSendCredits_SenderNotFound(t *testing.T) {
 	k := issuance.NewKeeper()
 
-	_, err := k.SendCredits("nonexistent", testAddr2, math.NewInt(100))
+	_, err := k.SendCredits(unknownAddr, testAddr2, math.NewInt(100))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -961,7 +964,7 @@ func TestSendCredits_RecipientNotFound(t *testing.T) {
 	_, err := k.RegisterHuman(ctx, testAddr1, testUUID1, "kyc", issuance.FrequencyMonthly)
 	require.NoError(t, err)
 
-	_, err = k.SendCredits(testAddr1, "nonexistent", math.NewInt(100))
+	_, err = k.SendCredits(testAddr1, unknownAddr, math.NewInt(100))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "must be registered")
 }
@@ -1193,4 +1196,57 @@ func TestFeePolicy_Zero(t *testing.T) {
 	// The FeePolicy constant is compile-time and immutable.
 	assert.Equal(t, issuance.FeePolicy("zero"), issuance.FeeZero,
 		"fee policy must be zero (Option A: pure credit system)")
+}
+// Malformed addresses are refused by format before any lookup, so the error says what is wrong.
+func TestSendCredits_MalformedAddressesAreRefusedByFormat(t *testing.T) {
+	k := issuance.NewKeeper()
+	ctx := context.Background()
+	_, err := k.RegisterHuman(ctx, testAddr1, testUUID1, "kyc", issuance.FrequencyMonthly)
+	require.NoError(t, err)
+	_, err = k.RegisterHuman(ctx, testAddr2, testUUID2, "kyc", issuance.FrequencyMonthly)
+	require.NoError(t, err)
+
+	_, err = k.SendCredits("nonexistent", testAddr2, math.NewInt(100))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a valid bech32 address")
+
+	_, err = k.SendCredits(testAddr1, "not-an-address", math.NewInt(100))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a valid bech32 address")
+
+	_, err = k.BatchSend("nonexistent", []issuance.BatchSendEntry{{To: testAddr2, Amount: math.NewInt(100)}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a valid bech32 address")
+
+	_, err = k.BatchSend(testAddr1, []issuance.BatchSendEntry{{To: "bad", Amount: math.NewInt(100)}})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "entry 0")
+	assert.Contains(t, err.Error(), "not a valid bech32 address")
+
+	_, err = k.UpdatePayoutFrequency("bad", issuance.FrequencyWeekly)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a valid bech32 address")
+}
+
+// An unset amount is refused, not dereferenced.
+func TestSendCredits_UnsetAmountIsRefused(t *testing.T) {
+	k := issuance.NewKeeper()
+	ctx := context.Background()
+	_, err := k.RegisterHuman(ctx, testAddr1, testUUID1, "kyc", issuance.FrequencyMonthly)
+	require.NoError(t, err)
+	_, err = k.RegisterHuman(ctx, testAddr2, testUUID2, "kyc", issuance.FrequencyMonthly)
+	require.NoError(t, err)
+
+	var unset math.Int
+	assert.NotPanics(t, func() {
+		_, err = k.SendCredits(testAddr1, testAddr2, unset)
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must be positive")
+
+	assert.NotPanics(t, func() {
+		_, err = k.BatchSend(testAddr1, []issuance.BatchSendEntry{{To: testAddr2, Amount: unset}})
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must be positive")
 }
