@@ -86,7 +86,7 @@ const mockTransaction: Transaction = {
   ],
 }
 
-export default function TransactionDetailPage({ params }: { params: { id: string } }) {
+export default function TransactionDetailPage() {
   const router = useRouter()
   const [refundAmount, setRefundAmount] = useState(`${mockTransaction.amount / 100}`)
   const [refundReason, setRefundReason] = useState("")
