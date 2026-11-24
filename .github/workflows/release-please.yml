@@ -1,0 +1,27 @@
+name: Release PR
+
+# Opens and updates a release pull request from conventional commit messages. Merging that pull request
+# creates the vX.Y.Z tag and the GitHub release, and the Release workflow (release.yml) builds from the tag.
+#
+# Tags and releases made with the default GITHUB_TOKEN do not start other workflows, so release.yml
+# would never run. Set the RELEASE_PLEASE_TOKEN secret to a token that can push tags (a fine-grained
+# personal access token, or a GitHub App token, with contents and pull-requests write). Without it,
+# this workflow still opens release pull requests, but the tag must then be pushed by hand.
+
+on:
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

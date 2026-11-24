@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "include-v-in-tag": true,
+  "include-component-in-tag": false,
+  "changelog-path": "CHANGELOG.md",
+  "packages": {
+    ".": {
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "packages/tpt-pay-core/api/openapi.json",
+          "jsonpath": "$.info.version"
+        },
+        {
+          "type": "json",
+          "path": "website/static/openapi.json",
+          "jsonpath": "$.info.version"
+        },
+        "deploy/helm/Chart.yaml"
+      ]
+    }
+  }
+}

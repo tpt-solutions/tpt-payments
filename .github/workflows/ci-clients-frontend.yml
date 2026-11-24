@@ -28,8 +28,8 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Install (React 19 with Next 14 needs legacy peer resolution)
-        run: npm ci --legacy-peer-deps
+      - name: Install
+        run: npm ci
       - name: Type-check
         run: npx tsc --noEmit
       - name: Build
@@ -148,6 +148,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+      - name: Go receiver
+        # GOWORK=off: the repository's go.work is above this module and does not include it.
+        working-directory: examples/go-minimal
+        env:
+          GOWORK: "off"
+        run: go test -count=1 ./...
       - name: Scaffolder tests
         working-directory: packages/create-tpt-pay-app
         run: npm test

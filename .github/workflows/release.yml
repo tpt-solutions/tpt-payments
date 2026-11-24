@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
   packages: write
+  # Keyless cosign signing and build provenance use the workflow's OIDC identity.
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -63,6 +66,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: packages/tpt-pay-core
@@ -75,6 +79,26 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository_owner }}/tpt-pay-core:${{ github.ref_name }}
             ghcr.io/${{ github.repository_owner }}/tpt-pay-core:latest
+
+      - name: Sign the image (keyless, Sigstore)
+        uses: sigstore/cosign-installer@v3
+      - name: Sign
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/tpt-pay-core
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Software bill of materials
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/tpt-pay-core@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: dist/tpt-pay-core.spdx.json
+
+      - name: Build provenance (SLSA)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/tpt-pay-server-linux-*
 
       - name: Generate changelog
         run: |
