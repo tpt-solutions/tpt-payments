@@ -55,13 +55,6 @@ const webhookEvents = [
         ...paymentIntentEvent('payment_intent.canceled', 'canceled', 1700000200),
         description: 'A payment intent was canceled.',
       },
-      {
-        ...paymentIntentEvent('payment_intent.fraud_flagged', 'requires_payment_method', 1700000300, {
-          fraud_reason: 'card_testing',
-          fraud_score: 85,
-        }),
-        description: 'A payment intent was flagged by fraud checks.',
-      },
     ],
   },
   {

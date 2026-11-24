@@ -9,7 +9,6 @@ const eventTypes = [
   'payment_intent.succeeded',
   'payment_intent.payment_failed',
   'payment_intent.canceled',
-  'payment_intent.fraud_flagged',
   'charge.refunded',
 ];
 

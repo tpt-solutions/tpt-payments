@@ -49,3 +49,19 @@ func TestValidateEvents(t *testing.T) {
 	assert.Error(t, webhook.ValidateEvents([]string{"payment_intent.typo"}))
 	assert.Error(t, webhook.ValidateEvents(nil))
 }
+
+// The catalog lists only events the core sends. An endpoint may subscribe to anything listed, so a
+// listed event that is never emitted would be a subscription that silently receives nothing.
+func TestKnownEventTypes_ListsOnlyEmittedEvents(t *testing.T) {
+	var got []string
+	for _, e := range webhook.KnownEventTypes() {
+		got = append(got, string(e))
+	}
+	assert.ElementsMatch(t, []string{
+		"payment_intent.created",
+		"payment_intent.succeeded",
+		"payment_intent.payment_failed",
+		"payment_intent.canceled",
+		"charge.refunded",
+	}, got)
+}

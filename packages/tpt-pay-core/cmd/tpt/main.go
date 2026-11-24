@@ -252,7 +252,6 @@ var eventTypes = []string{
 	"payment_intent.succeeded",
 	"payment_intent.payment_failed",
 	"payment_intent.canceled",
-	"payment_intent.fraud_flagged",
 	"charge.refunded",
 }
 
@@ -270,7 +269,6 @@ func eventObject(eventType string) map[string]any {
 			"payment_intent.succeeded":      "succeeded",
 			"payment_intent.payment_failed": "requires_payment_method",
 			"payment_intent.canceled":       "canceled",
-			"payment_intent.fraud_flagged":  "requires_payment_method",
 		}[eventType]
 		return map[string]any{
 			"id": "pi_test_fixture", "object": "payment_intent",
