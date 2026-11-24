@@ -3,7 +3,10 @@
   "info": {
     "title": "TPT Pay API",
     "version": "0.1.0",
-    "description": "Pre-release. Describes only the endpoints the core service serves. Stripe-compatible planned endpoints are listed in the compatibility report, not here."
+    "description": "Pre-release. Describes only the endpoints the core service serves. Stripe-compatible planned endpoints are listed in the compatibility report, not here.",
+    "license": {
+      "name": "MIT OR Apache-2.0"
+    }
   },
   "servers": [
     {
@@ -369,7 +372,8 @@
           "403": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "createPaymentIntent"
       },
       "get": {
         "summary": "List payment intents",
@@ -479,7 +483,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "listPaymentIntents"
       }
     },
     "/payment_intents/{id}": {
@@ -505,7 +510,8 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "retrievePaymentIntent"
       }
     },
     "/payment_intents/{id}/confirm": {
@@ -570,7 +576,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "confirmPaymentIntent"
       }
     },
     "/payment_intents/{id}/capture": {
@@ -616,7 +623,8 @@
           "400": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "capturePaymentIntent"
       }
     },
     "/payment_intents/{id}/cancel": {
@@ -661,7 +669,8 @@
           "400": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "cancelPaymentIntent"
       }
     },
     "/refunds": {
@@ -726,7 +735,8 @@
           "502": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "createRefund"
       },
       "get": {
         "summary": "List refunds",
@@ -820,7 +830,8 @@
           "403": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "listRefunds"
       }
     },
     "/refunds/{id}": {
@@ -846,7 +857,8 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "retrieveRefund"
       }
     },
     "/webhook_endpoints": {
@@ -900,7 +912,8 @@
           "400": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "createWebhookEndpoint"
       }
     },
     "/webhook_endpoints/{id}": {
@@ -926,7 +939,8 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "retrieveWebhookEndpoint"
       },
       "delete": {
         "summary": "Disable a webhook endpoint",
@@ -943,7 +957,8 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "disableWebhookEndpoint"
       }
     },
     "/api_keys": {
@@ -994,7 +1009,8 @@
           "403": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "createApiKey"
       }
     },
     "/api_keys/{id}": {
@@ -1013,7 +1029,8 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "operationId": "revokeApiKey"
       }
     },
     "/health": {
@@ -1024,7 +1041,8 @@
           "200": {
             "description": "The process is running."
           }
-        }
+        },
+        "operationId": "getHealth"
       }
     },
     "/readyz": {
@@ -1038,7 +1056,8 @@
           "503": {
             "description": "The database is unreachable."
           }
-        }
+        },
+        "operationId": "getReadiness"
       }
     },
     "/metrics": {
@@ -1049,7 +1068,8 @@
           "200": {
             "description": "Text exposition format."
           }
-        }
+        },
+        "operationId": "getMetrics"
       }
     },
     "/openapi.json": {
@@ -1060,7 +1080,8 @@
           "200": {
             "description": "OpenAPI 3.0 document."
           }
-        }
+        },
+        "operationId": "getOpenApiDocument"
       }
     },
     "/webhook_deliveries": {
@@ -1196,7 +1217,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "listWebhookDeliveries"
       }
     },
     "/webhook_deliveries/{id}/replay": {
@@ -1265,7 +1287,8 @@
               }
             }
           }
-        }
+        },
+        "operationId": "replayWebhookDelivery"
       }
     },
     "/policy/evaluate": {
@@ -1378,27 +1401,8 @@
               }
             }
           }
-        }
-      }
-    }
-  },
-  "parameters": {
-    "Id": {
-      "name": "id",
-      "in": "path",
-      "required": true,
-      "schema": {
-        "type": "string"
-      }
-    },
-    "IdempotencyKey": {
-      "name": "Idempotency-Key",
-      "in": "header",
-      "required": false,
-      "description": "Makes a write safe to retry. The same key with a different request returns 400. Keys expire after 24 hours.",
-      "schema": {
-        "type": "string",
-        "maxLength": 255
+        },
+        "operationId": "evaluatePolicy"
       }
     }
   }

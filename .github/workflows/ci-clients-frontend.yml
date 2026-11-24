@@ -132,6 +132,23 @@ jobs:
           print("OpenAPI", spec["openapi"], "version", spec["info"]["version"], "paths", len(spec["paths"]))
           PY
 
+      - name: Spec lint (errors fail the build; warnings are reported)
+        run: npx --yes @redocly/cli@2.83.0 lint packages/tpt-pay-core/api/openapi.json
+
+      - name: Set up Go for oasdiff
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Breaking-change check against the base branch
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          GOBIN="$HOME/bin" go install github.com/oasdiff/oasdiff@v1.39.0
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          git show FETCH_HEAD:packages/tpt-pay-core/api/openapi.json > "$RUNNER_TEMP/base-openapi.json"
+          "$HOME/bin/oasdiff" breaking "$RUNNER_TEMP/base-openapi.json" packages/tpt-pay-core/api/openapi.json --fail-on ERR
+
   examples:
     name: Examples (webhook receivers)
     runs-on: ubuntu-latest

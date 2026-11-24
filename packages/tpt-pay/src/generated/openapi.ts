@@ -15,109 +15,13 @@ export interface paths {
          * List payment intents
          * @description Returns one page of the merchant's payment intents, newest first. Requires a secret key.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    /** @description The id of the last intent on the previous page. */
-                    starting_after?: string;
-                    status?: "requires_payment_method" | "requires_confirmation" | "requires_action" | "processing" | "requires_capture" | "succeeded" | "canceled";
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of payment intents */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @enum {string} */
-                            object: "list";
-                            url?: string;
-                            has_more: boolean;
-                            data: components["schemas"]["PaymentIntent"][];
-                        };
-                    };
-                };
-                /** @description Invalid parameter */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Missing or invalid API key */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description A publishable key was used */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listPaymentIntents"];
         put?: never;
         /**
          * Create a payment intent
          * @description Requires a secret key.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        amount: number;
-                        currency: string;
-                        /** @enum {string} */
-                        capture_method?: "automatic" | "manual";
-                        /** @enum {string} */
-                        confirmation_method?: "automatic" | "manual";
-                        metadata?: {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-            responses: {
-                /** @description Created */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PaymentIntent"];
-                    };
-                };
-                400: components["responses"]["Error"];
-                401: components["responses"]["Error"];
-                403: components["responses"]["Error"];
-            };
-        };
+        post: operations["createPaymentIntent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -135,30 +39,7 @@ export interface paths {
          * Retrieve a payment intent
          * @description Any valid key. Only intents in the key's mode and merchant are visible.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The object ID. */
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PaymentIntent"];
-                    };
-                };
-                404: components["responses"]["Error"];
-            };
-        };
+        get: operations["retrievePaymentIntent"];
         put?: never;
         post?: never;
         delete?: never;
@@ -180,54 +61,7 @@ export interface paths {
          * Attach a payment method and authorize
          * @description Any valid key, including publishable keys (browser checkout). For automatic capture the payment is captured and posted to the ledger.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The object ID. */
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        payment_method: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PaymentIntent"];
-                    };
-                };
-                400: components["responses"]["Error"];
-                /** @description Card declined */
-                402: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description The card network did not return a definitive result. The intent stays in processing; reconcile before retrying. */
-                502: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["confirmPaymentIntent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -247,39 +81,7 @@ export interface paths {
          * Capture an authorized payment
          * @description Requires a secret key and status requires_capture.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path: {
-                    /** @description The object ID. */
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        amount_to_capture?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PaymentIntent"];
-                    };
-                };
-                400: components["responses"]["Error"];
-            };
-        };
+        post: operations["capturePaymentIntent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -299,39 +101,7 @@ export interface paths {
          * Cancel a payment intent
          * @description Requires a secret key. Not allowed once captured.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path: {
-                    /** @description The object ID. */
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: {
-                content: {
-                    "application/json": {
-                        cancellation_reason?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["PaymentIntent"];
-                    };
-                };
-                400: components["responses"]["Error"];
-            };
-        };
+        post: operations["cancelPaymentIntent"];
         delete?: never;
         options?: never;
         head?: never;
@@ -349,84 +119,13 @@ export interface paths {
          * List refunds
          * @description Returns one page of the merchant's refunds, newest first. Requires a secret key.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    /** @description The id of the last refund on the previous page. */
-                    starting_after?: string;
-                    status?: "pending" | "succeeded" | "failed";
-                    /** @description Only the refunds of this payment intent. */
-                    payment_intent?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of refunds */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @enum {string} */
-                            object: "list";
-                            url?: string;
-                            has_more: boolean;
-                            data: components["schemas"]["Refund"][];
-                        };
-                    };
-                };
-                400: components["responses"]["Error"];
-                401: components["responses"]["Error"];
-                403: components["responses"]["Error"];
-            };
-        };
+        get: operations["listRefunds"];
         put?: never;
         /**
          * Refund a payment
          * @description Requires a secret key and a succeeded payment intent. Omit amount to refund the remaining refundable balance. A refund reserves its amount while pending, so refunds cannot exceed what was captured.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description ID of the payment intent to refund. */
-                        payment_intent: string;
-                        /** @description Amount in minor units. Defaults to the remaining refundable balance. */
-                        amount?: number;
-                        /** @enum {string} */
-                        reason?: "duplicate" | "fraudulent" | "requested_by_customer";
-                    };
-                };
-            };
-            responses: {
-                /** @description The refund. A definitive network decline is returned here with status failed. */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Refund"];
-                    };
-                };
-                400: components["responses"]["Error"];
-                404: components["responses"]["Error"];
-                502: components["responses"]["Error"];
-            };
-        };
+        post: operations["createRefund"];
         delete?: never;
         options?: never;
         head?: never;
@@ -444,30 +143,7 @@ export interface paths {
          * Retrieve a refund
          * @description Any valid key. Only refunds in the key's mode and merchant are visible.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The object ID. */
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Refund"];
-                    };
-                };
-                404: components["responses"]["Error"];
-            };
-        };
+        get: operations["retrieveRefund"];
         put?: never;
         post?: never;
         delete?: never;
@@ -489,42 +165,7 @@ export interface paths {
          * Create a webhook endpoint
          * @description Requires a secret key. The signing secret is returned once.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: {
-                    /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
-                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-                };
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /**
-                         * Format: uri
-                         * @description https in live mode; http loopback allowed in test mode.
-                         */
-                        url: string;
-                        /** @description Event types, or "*". */
-                        enabled_events?: string[];
-                    };
-                };
-            };
-            responses: {
-                /** @description Created (includes secret) */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WebhookEndpoint"];
-                    };
-                };
-                400: components["responses"]["Error"];
-            };
-        };
+        post: operations["createWebhookEndpoint"];
         delete?: never;
         options?: never;
         head?: never;
@@ -542,58 +183,14 @@ export interface paths {
          * Retrieve a webhook endpoint
          * @description Requires a secret key.
          */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The object ID. */
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["WebhookEndpoint"];
-                    };
-                };
-                404: components["responses"]["Error"];
-            };
-        };
+        get: operations["retrieveWebhookEndpoint"];
         put?: never;
         post?: never;
         /**
          * Disable a webhook endpoint
          * @description Requires a secret key. The endpoint is disabled, not removed, so delivery history is kept.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The object ID. */
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                404: components["responses"]["Error"];
-            };
-        };
+        delete: operations["disableWebhookEndpoint"];
         options?: never;
         head?: never;
         patch?: never;
@@ -612,37 +209,7 @@ export interface paths {
          * Create an API key
          * @description Requires a secret key. New keys are created in the caller's mode.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        type?: "secret" | "publishable";
-                        /** @enum {string} */
-                        mode?: "test" | "live";
-                        name?: string;
-                    };
-                };
-            };
-            responses: {
-                /** @description Created (includes the raw key once) */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ApiKey"];
-                    };
-                };
-                403: components["responses"]["Error"];
-            };
-        };
+        post: operations["createApiKey"];
         delete?: never;
         options?: never;
         head?: never;
@@ -663,28 +230,7 @@ export interface paths {
          * Revoke an API key
          * @description Requires a secret key.
          */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description The object ID. */
-                    id: components["parameters"]["Id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                404: components["responses"]["Error"];
-            };
-        };
+        delete: operations["revokeApiKey"];
         options?: never;
         head?: never;
         patch?: never;
@@ -698,24 +244,7 @@ export interface paths {
             cookie?: never;
         };
         /** Liveness */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The process is running. */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -732,31 +261,7 @@ export interface paths {
             cookie?: never;
         };
         /** Readiness */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description The database is reachable. */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description The database is unreachable. */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getReadiness"];
         put?: never;
         post?: never;
         delete?: never;
@@ -773,24 +278,7 @@ export interface paths {
             cookie?: never;
         };
         /** Prometheus metrics */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Text exposition format. */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getMetrics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -807,24 +295,7 @@ export interface paths {
             cookie?: never;
         };
         /** This document */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description OpenAPI 3.0 document. */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        get: operations["getOpenApiDocument"];
         put?: never;
         post?: never;
         delete?: never;
@@ -844,75 +315,7 @@ export interface paths {
          * List webhook deliveries
          * @description Returns one page of webhook deliveries for the merchant, newest first, with their status and attempt count. Requires a secret key.
          */
-        get: {
-            parameters: {
-                query?: {
-                    limit?: number;
-                    starting_after?: string;
-                    endpoint_id?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description A page of deliveries */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @enum {string} */
-                            object?: "list";
-                            has_more?: boolean;
-                            data?: {
-                                id?: string;
-                                object?: string;
-                                endpoint?: string;
-                                event_type?: string;
-                                event_id?: string;
-                                /** @enum {string} */
-                                status?: "pending" | "delivered" | "failed";
-                                attempts?: number;
-                                last_http_status?: number | null;
-                                last_error?: string;
-                                created?: number;
-                                delivered_at?: number | null;
-                            }[];
-                        };
-                    };
-                };
-                /** @description Invalid parameter */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Missing or invalid API key */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description A publishable key was used */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        get: operations["listWebhookDeliveries"];
         put?: never;
         post?: never;
         delete?: never;
@@ -934,59 +337,7 @@ export interface paths {
          * Replay a webhook delivery
          * @description Queues the same event (same event ID) for delivery again. Returns 202; the workers send it. Works for delivered and failed deliveries.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Queued */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            id?: string;
-                            object?: string;
-                            status?: string;
-                        };
-                    };
-                };
-                /** @description Missing or invalid API key */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description A publishable key was used */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description No such delivery in this merchant and mode */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["replayWebhookDelivery"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1006,75 +357,7 @@ export interface paths {
          * Dry-run the merchant rules
          * @description Shows what each merchant rule would do for a payment with this amount, currency and metadata, in the caller's mode. Nothing is created or recorded. A payment whose create call matches a blocking rule is refused with 402 and code payment_blocked.
          */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /** @description Amount in the currency's smallest unit. */
-                        amount?: number;
-                        currency: string;
-                        metadata?: {
-                            [key: string]: string;
-                        };
-                    };
-                };
-            };
-            responses: {
-                /** @description The decision and one entry per rule */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @enum {string} */
-                            object?: "policy_evaluation";
-                            /** @enum {string} */
-                            decision?: "allow" | "flag" | "block";
-                            rules?: {
-                                rule_id?: string;
-                                matched?: boolean;
-                                /** @enum {string} */
-                                action?: "flag" | "block";
-                            }[];
-                        };
-                    };
-                };
-                /** @description Invalid parameter */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Missing or invalid API key */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description A publishable key was used */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-            };
-        };
+        post: operations["evaluatePolicy"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1189,4 +472,743 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    listPaymentIntents: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description The id of the last intent on the previous page. */
+                starting_after?: string;
+                status?: "requires_payment_method" | "requires_confirmation" | "requires_action" | "processing" | "requires_capture" | "succeeded" | "canceled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of payment intents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object: "list";
+                        url?: string;
+                        has_more: boolean;
+                        data: components["schemas"]["PaymentIntent"][];
+                    };
+                };
+            };
+            /** @description Invalid parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description A publishable key was used */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createPaymentIntent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amount: number;
+                    currency: string;
+                    /** @enum {string} */
+                    capture_method?: "automatic" | "manual";
+                    /** @enum {string} */
+                    confirmation_method?: "automatic" | "manual";
+                    metadata?: {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentIntent"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    retrievePaymentIntent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The object ID. */
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentIntent"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    confirmPaymentIntent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The object ID. */
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    payment_method: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentIntent"];
+                };
+            };
+            400: components["responses"]["Error"];
+            /** @description Card declined */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The card network did not return a definitive result. The intent stays in processing; reconcile before retrying. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    capturePaymentIntent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The object ID. */
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    amount_to_capture?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentIntent"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    cancelPaymentIntent: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description The object ID. */
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    cancellation_reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentIntent"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    listRefunds: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description The id of the last refund on the previous page. */
+                starting_after?: string;
+                status?: "pending" | "succeeded" | "failed";
+                /** @description Only the refunds of this payment intent. */
+                payment_intent?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of refunds */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object: "list";
+                        url?: string;
+                        has_more: boolean;
+                        data: components["schemas"]["Refund"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createRefund: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description ID of the payment intent to refund. */
+                    payment_intent: string;
+                    /** @description Amount in minor units. Defaults to the remaining refundable balance. */
+                    amount?: number;
+                    /** @enum {string} */
+                    reason?: "duplicate" | "fraudulent" | "requested_by_customer";
+                };
+            };
+        };
+        responses: {
+            /** @description The refund. A definitive network decline is returned here with status failed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refund"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+        };
+    };
+    retrieveRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The object ID. */
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Refund"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createWebhookEndpoint: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A client-generated key that makes a write safe to retry. The same key with a different request is refused with 400. Keys expire after 24 hours. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: uri
+                     * @description https in live mode; http loopback allowed in test mode.
+                     */
+                    url: string;
+                    /** @description Event types, or "*". */
+                    enabled_events?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Created (includes secret) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookEndpoint"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    retrieveWebhookEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The object ID. */
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookEndpoint"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    disableWebhookEndpoint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The object ID. */
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    type?: "secret" | "publishable";
+                    /** @enum {string} */
+                    mode?: "test" | "live";
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created (includes the raw key once) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    revokeApiKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The object ID. */
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The process is running. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The database is reachable. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The database is unreachable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Text exposition format. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getOpenApiDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OpenAPI 3.0 document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listWebhookDeliveries: {
+        parameters: {
+            query?: {
+                limit?: number;
+                starting_after?: string;
+                endpoint_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of deliveries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object?: "list";
+                        has_more?: boolean;
+                        data?: {
+                            id?: string;
+                            object?: string;
+                            endpoint?: string;
+                            event_type?: string;
+                            event_id?: string;
+                            /** @enum {string} */
+                            status?: "pending" | "delivered" | "failed";
+                            attempts?: number;
+                            last_http_status?: number | null;
+                            last_error?: string;
+                            created?: number;
+                            delivered_at?: number | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Invalid parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description A publishable key was used */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    replayWebhookDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id?: string;
+                        object?: string;
+                        status?: string;
+                    };
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description A publishable key was used */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description No such delivery in this merchant and mode */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    evaluatePolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Amount in the currency's smallest unit. */
+                    amount?: number;
+                    currency: string;
+                    metadata?: {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description The decision and one entry per rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object?: "policy_evaluation";
+                        /** @enum {string} */
+                        decision?: "allow" | "flag" | "block";
+                        rules?: {
+                            rule_id?: string;
+                            matched?: boolean;
+                            /** @enum {string} */
+                            action?: "flag" | "block";
+                        }[];
+                    };
+                };
+            };
+            /** @description Invalid parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Missing or invalid API key */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description A publishable key was used */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+}
