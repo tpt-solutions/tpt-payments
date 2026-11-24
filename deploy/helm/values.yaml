@@ -2,6 +2,19 @@
 
 replicaCount: 2
 
+# Schema migrations, run by a Helm hook Job with the chart's image (see templates/migrate-job.yaml).
+migrations:
+  enabled: true
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 128Mi
+
 image:
   repository: ghcr.io/tpt-solutions/tpt-payments
   pullPolicy: IfNotPresent

@@ -1,0 +1,54 @@
+{{- if .Values.migrations.enabled }}
+# Applies the schema migrations with the same image as the Deployment (`tpt-pay-server migrate`).
+#
+# It is a Helm hook, not a plain resource:
+#   - post-install: the Secret and Deployment exist by then, so the Job can read DATABASE_URL. The
+#     pods may start a moment before the schema is ready; they serve errors until the Job finishes.
+#   - pre-upgrade: the new schema is in place before the new pods replace the old ones.
+#
+# Migrations are serialised by a database advisory lock, so a retry or an overlapping run is safe.
+# A database created by Atlas (docker compose) is refused by the command; see docs/operator-deployment.md.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "tpt-payments.fullname" . }}-migrate
+  labels:
+    {{- include "tpt-payments.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    "helm.sh/hook": post-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "tpt-payments.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "tpt-payments.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["migrate"]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "tpt-payments.secretName" . }}
+                  key: DATABASE_URL
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+{{- end }}

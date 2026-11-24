@@ -36,7 +36,13 @@ var (
 )
 
 func main() {
-	if err := run(); err != nil {
+	var err error
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		err = runMigrate()
+	} else {
+		err = run()
+	}
+	if err != nil {
 		slog.Error("server exited with error", "err", err)
 		os.Exit(1)
 	}
@@ -81,7 +87,11 @@ func run() error {
 	apiKeySvc := apikey.NewService(pool)
 
 	// Adapter selection: in production, swap sandbox for BankSponsorAdapter.
-	var adpt = sandbox.Default()
+	adpt := sandbox.New(sandbox.Config{
+		ArtificialLatency: 50 * time.Millisecond,
+		ChaosRate:         cfg.Adapter.ChaosRate,
+		ChaosSeed:         cfg.Adapter.ChaosSeed,
+	})
 	if cfg.Adapter.Type != "sandbox" {
 		return fmt.Errorf("adapter type %q not yet implemented — use 'sandbox'", cfg.Adapter.Type)
 	}
@@ -119,7 +129,10 @@ func run() error {
 		return err
 	}
 
-	router := api.NewRouter(pool, paymentSvc, apiKeySvc, secrets, metricsRegistry, limiter)
+	// Outside the router so that every request, including the operational endpoints, sees the
+	// client address the trusted-proxy rules produce.
+	router := middleware.TrustedProxyRealIP(cfg.Server.TrustedProxies)(
+		api.NewRouter(pool, paymentSvc, apiKeySvc, secrets, metricsRegistry, limiter))
 
 	// Webhook delivery worker: drains the outbox written by payment state changes.
 	deliveries := webhook.NewWorker(pool, secrets, webhook.WorkerConfig{
