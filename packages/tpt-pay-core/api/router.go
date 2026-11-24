@@ -36,8 +36,8 @@ func NewRouter(
 	metrics := middleware.NewMetrics(reg)
 
 	// ── Global middleware ─────────────────────────────────────────────────────
-	// No RealIP: it trusts any client's X-Forwarded-For. Client addresses come from the
-	// connection until trusted proxies are configured.
+	// No RealIP: it trusts any client's X-Forwarded-For. Forwarded client addresses are only
+	// believed from TRUSTED_PROXIES, applied by cmd/server around this router.
 	r.Use(middleware.RequestID)
 	r.Use(chimw.Recoverer)
 	r.Use(middleware.LimitBody)
@@ -79,6 +79,8 @@ func NewRouter(
 		// Refunds
 		rf := handlers.NewRefunds(paymentSvc)
 		r.With(secret, audit.Record("refund.create", "refund")).Post("/refunds", rf.Create)
+		// Listing exposes every refund of the merchant, so it needs a secret key.
+		r.With(secret).Get("/refunds", handlers.NewRefundList(paymentSvc).List)
 		r.Get("/refunds/{id}", rf.Retrieve)
 
 		// Webhook endpoints

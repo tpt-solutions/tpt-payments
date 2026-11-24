@@ -60,16 +60,28 @@ func parseListParams(r *http.Request, scope payment.Scope) (payment.ListParams, 
 		StartingAfter: q.Get("starting_after"),
 		Status:        payment.Status(q.Get("status")),
 	}
-	if raw := q.Get("limit"); raw != "" {
-		n, err := strconv.Atoi(raw)
-		if err != nil {
-			return params, apierrors.InvalidParam("limit", "limit must be an integer")
-		}
-		// An explicit limit is checked here. Zero is an error, not a request for the default.
-		if n < 1 || n > payment.MaxListLimit {
-			return params, apierrors.InvalidParam("limit", fmt.Sprintf("limit must be between 1 and %d", payment.MaxListLimit))
-		}
-		params.Limit = n
+	limit, err := parseLimit(r)
+	if err != nil {
+		return params, err
 	}
+	params.Limit = limit
 	return payment.ValidateListParams(params)
+}
+
+// parseLimit reads the limit query parameter. An explicit limit is checked here: zero is an
+// error, not a request for the default. Absent means zero, which the service replaces with the
+// default page size.
+func parseLimit(r *http.Request) (int, error) {
+	raw := r.URL.Query().Get("limit")
+	if raw == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, apierrors.InvalidParam("limit", "limit must be an integer")
+	}
+	if n < 1 || n > payment.MaxListLimit {
+		return 0, apierrors.InvalidParam("limit", fmt.Sprintf("limit must be between 1 and %d", payment.MaxListLimit))
+	}
+	return n, nil
 }

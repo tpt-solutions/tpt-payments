@@ -727,6 +727,100 @@
             "$ref": "#/components/responses/Error"
           }
         }
+      },
+      "get": {
+        "summary": "List refunds",
+        "description": "Returns one page of the merchant's refunds, newest first. Requires a secret key.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          {
+            "name": "starting_after",
+            "in": "query",
+            "required": false,
+            "description": "The id of the last refund on the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "succeeded",
+                "failed"
+              ]
+            }
+          },
+          {
+            "name": "payment_intent",
+            "in": "query",
+            "required": false,
+            "description": "Only the refunds of this payment intent.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of refunds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "object",
+                    "data",
+                    "has_more"
+                  ],
+                  "properties": {
+                    "object": {
+                      "type": "string",
+                      "enum": [
+                        "list"
+                      ]
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Refund"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
       }
     },
     "/refunds/{id}": {
