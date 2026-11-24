@@ -13,6 +13,7 @@ const { GasPrice } = require('@cosmjs/stargate');
 const { stringToPath } = require('@cosmjs/crypto');
 const { fromHex, toHex } = require('@cosmjs/encoding');
 const { isAccountAddress } = require('./bech32');
+const { createSequenceQueue } = require('./sequence-queue');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +33,9 @@ if (!Number.isInteger(RATE_LIMIT_WINDOW_SECONDS) || RATE_LIMIT_WINDOW_SECONDS <=
   process.exit(1);
 }
 const RATE_LIMIT_WINDOW_MS = RATE_LIMIT_WINDOW_SECONDS * 1000;
+
+// Transfers from the faucet account run one at a time (see sequence-queue.js).
+const sendQueue = createSequenceQueue();
 
 // In-memory rate limit store (IP -> timestamp of last request)
 const rateLimitStore = new Map();
@@ -135,37 +139,44 @@ app.post('/api/claim', getRateLimitMiddleware(), async (req, res) => {
     const client = await StargateClient.connect(CHAIN_RPC_URL);
     const balance = await client.getBalance(address, DENOM);
 
-    // Get sender account for sequence
-    const sender = await client.getAccount(faucetAddress);
-    if (!sender) {
-      return res.status(500).json({
-        error: 'Faucet error',
-        message: 'Faucet account not found on chain. Please contact testnet administrators.',
-      });
-    }
+    // The sequence is read and the transfer broadcast one at a time. Two concurrent claims would
+    // otherwise sign with the same sequence, and one would fail with a sequence mismatch.
+    const result = await sendQueue.run(async () => {
+      const sender = await client.getAccount(faucetAddress);
+      if (!sender) {
+        const err = new Error('faucet account not found on chain');
+        err.faucetResponse = {
+          status: 500,
+          body: {
+            error: 'Faucet error',
+            message: 'Faucet account not found on chain. Please contact testnet administrators.',
+          },
+        };
+        throw err;
+      }
 
-    // Build and broadcast transfer
-    const amount = [
-      {
-        denom: DENOM,
-        amount: FAUCET_AMOUNT,
-      },
-    ];
+      const amount = [
+        {
+          denom: DENOM,
+          amount: FAUCET_AMOUNT,
+        },
+      ];
 
-    const fee = {
-      amount: [],
-      gas: '200000',
-    };
+      const fee = {
+        amount: [],
+        gas: '200000',
+      };
 
-    const result = await client.sendTokens(
-      faucetAddress,
-      address,
-      amount,
-      fee,
-      'TPT Credit testnet faucet'
-    );
-
-    assertIsDeliverTxSuccess(result);
+      const sent = await client.sendTokens(
+        faucetAddress,
+        address,
+        amount,
+        fee,
+        'TPT Credit testnet faucet'
+      );
+      assertIsDeliverTxSuccess(sent);
+      return sent;
+    });
 
     const txHash = result.transactionHash || toHex(result.transactionHash);
 
@@ -182,6 +193,9 @@ app.post('/api/claim', getRateLimitMiddleware(), async (req, res) => {
     // Log the detail for operators. Do not return it: RPC and SDK errors can name hosts,
     // sequence numbers, and internal state.
     console.error(`Faucet error for ${address}:`, err && err.message);
+    if (err && err.faucetResponse) {
+      return res.status(err.faucetResponse.status).json(err.faucetResponse.body);
+    }
     res.status(500).json({
       error: 'Transaction failed',
       message: 'The faucet could not send tokens. Try again later.',
