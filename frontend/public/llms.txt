@@ -20,6 +20,8 @@ Send a secret key (sk_test_... or sk_live_...) as `Authorization: Bearer <key>`.
 - POST /v1/payment_intents/{id}/capture: capture an authorized amount. Secret key only.
 - POST /v1/payment_intents/{id}/cancel: cancel. Secret key only.
 - POST /v1/refunds: refund a payment. Body: payment_intent, amount, reason. Secret key only.
+- GET /v1/refunds: list refunds, newest first. Query: limit (1-100), starting_after, status
+  (pending | succeeded | failed), payment_intent. Secret key only.
 - GET /v1/refunds/{id}: retrieve a refund.
 - POST /v1/webhook_endpoints, GET/DELETE /v1/webhook_endpoints/{id}: manage webhook endpoints.
 - GET /v1/webhook_deliveries: list recent webhook deliveries with status and attempts.
@@ -34,8 +36,8 @@ Rate limits return 429 with Retry-After.
 
 ## Webhooks
 
-Event types: payment_intent.created, payment_intent.succeeded, payment_intent.payment_failed,
-payment_intent.canceled, payment_intent.fraud_flagged, charge.refunded.
+Event types sent today: payment_intent.created, payment_intent.succeeded,
+payment_intent.payment_failed (a declined authorization), payment_intent.canceled, charge.refunded.
 
 Each delivery carries a TPT-Signature header (t=<unix time>,v1=<HMAC-SHA256 hex of "t.body">).
 Verify the raw request body before parsing it. Receivers should de-duplicate on TPT-Event-Id.
@@ -44,7 +46,8 @@ Verify the raw request body before parsing it. Receivers should de-duplicate on 
 
 pm_card_visa approves. pm_card_declined, pm_card_insufficient_funds, pm_card_expired,
 pm_card_cvc_incorrect decline with the matching code. pm_card_network_error returns an unknown
-outcome. pm_card_slow approves after two seconds.
+outcome. pm_card_slow approves after two seconds. Each pm_card_* token also works as pm_test_*
+(for example pm_test_declined).
 
 ## SDKs
 

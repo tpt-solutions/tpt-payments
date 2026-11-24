@@ -99,6 +99,29 @@ curl -s -X POST http://localhost:8080/v1/payment_intents/pi_.../confirm   -H "Au
 
 The status becomes `succeeded`. The OpenAPI document is served at `/openapi.json`.
 
+To capture later instead, create the intent with `"capture_method":"manual"`. Confirming it with
+`pm_card_visa` leaves it at `requires_capture`. Then capture it, in full or in part:
+
+```bash
+# 3. Capture (the body is optional; leave it out to capture everything)
+curl -s -X POST http://localhost:8080/v1/payment_intents/pi_.../capture   -H "Authorization: Bearer sk_test_..." -H "Content-Type: application/json"   -d '{"amount_to_capture":1000}'
+```
+
+To receive the result as a webhook, register an endpoint. Test keys may use `http://localhost`.
+The response includes the signing secret (`whsec_...`) once, so store it now:
+
+```bash
+# 4. Register an endpoint for successful payments
+curl -s -X POST http://localhost:8080/v1/webhook_endpoints   -H "Authorization: Bearer sk_test_..." -H "Content-Type: application/json"   -d '{"url":"http://localhost:4000/webhooks","enabled_events":["payment_intent.succeeded"]}'
+
+# 5. Send a signed test event to your receiver, using the CLI in packages/tpt-pay-core/cmd/tpt
+tpt trigger payment_intent.succeeded --forward-to http://localhost:4000/webhooks --secret whsec_...
+```
+
+Receivers that verify the signature are in `examples/node-webhook-receiver` and
+`examples/python-webhook-receiver`. `tpt listen`, which forwards live deliveries to a local
+machine, is not available yet: it needs a tunnel service.
+
 ### Sandbox test cards
 
 The sandbox adapter approves any payment method that is not a test card number. Pass one of these
@@ -113,6 +136,8 @@ as `payment_method` to get that outcome:
 | `pm_card_cvc_incorrect` | Declined (`incorrect_cvc`) |
 | `pm_card_network_error` | Network error: the outcome is unknown, and the intent is left for reconciliation |
 | `pm_card_slow` | Approved after 2 seconds (exercises client timeouts) |
+
+Each `pm_card_*` token above also works as `pm_test_*` with the same result (for example `pm_test_declined`). The `pm_test_*` form makes test tokens obvious and cannot be mistaken for an issued payment method.
 | `4000000000000002` | Declined (`card_declined`) |
 | `4000000000009995` | Declined (`insufficient_funds`) |
 | `4000000000000069` | Declined (`expired_card`) |
@@ -121,6 +146,11 @@ as `payment_method` to get that outcome:
 
 Test keys (`sk_test_` / `pk_test_`) only act on test-mode data. Live keys (`sk_live_`) are created
 with `go run ./cmd/bootstrap --live` and must never be used in development.
+
+For resilience tests, `ADAPTER_CHAOS_RATE` (a number from 0 to 1) makes that fraction of adapter calls
+fail with a network error, so the intent is left for reconciliation as a real timeout would. Set
+`ADAPTER_CHAOS_SEED` to make the same calls fail on every run. Chaos is off by default and applies only
+to the sandbox adapter.
 
 ### Working on the code
 

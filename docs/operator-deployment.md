@@ -125,10 +125,20 @@ helm install tpt-payments tpt-payments/tpt-payments \
 
 ### Database Migrations
 
-Migrations run automatically on first pod startup. Monitor pod logs:
+The chart runs the schema migrations in a Helm hook Job (`templates/migrate-job.yaml`) after
+install and before each upgrade. The Job uses the same image as the server, with the command
+`tpt-pay-server migrate`. Monitor it with:
 ```bash
-kubectl logs -f -n tpt-payments -l app.kubernetes.io/name=tpt-payments
+kubectl logs -n tpt-payments job/<fullname>-migrate   # fullname: the release's full name (see kubectl get jobs)
 ```
+
+Set `migrations.enabled: false` to run migrations yourself. Use the same image:
+`tpt-pay-server migrate`, with `DATABASE_URL` set. Migrations are serialised by a database advisory
+lock, so running the command twice is safe, and a second run applies nothing.
+
+A database created by the docker compose stack (Atlas migrations) is not migrated by this command.
+It refuses such a database, because its tables already exist. Keep migrating that database with
+Atlas, or start from an empty database.
 
 ### Default Admin User
 
