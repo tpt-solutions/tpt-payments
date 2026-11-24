@@ -345,7 +345,46 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List refunds
+         * @description Returns one page of the merchant's refunds, newest first. Requires a secret key.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    /** @description The id of the last refund on the previous page. */
+                    starting_after?: string;
+                    status?: "pending" | "succeeded" | "failed";
+                    /** @description Only the refunds of this payment intent. */
+                    payment_intent?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of refunds */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            object: "list";
+                            url?: string;
+                            has_more: boolean;
+                            data: components["schemas"]["Refund"][];
+                        };
+                    };
+                };
+                400: components["responses"]["Error"];
+                401: components["responses"]["Error"];
+                403: components["responses"]["Error"];
+            };
+        };
         put?: never;
         /**
          * Refund a payment

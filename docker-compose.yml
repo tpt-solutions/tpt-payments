@@ -92,7 +92,9 @@ services:
       migrate:
         condition: service_completed_successfully
     env_file:
-      - packages/tpt-pay-core/.env
+      # Optional: the .env file is gitignored, so CI and fresh clones do not have it.
+      - path: packages/tpt-pay-core/.env
+        required: false
     environment:
       DATABASE_URL: "postgres://tptpay:${POSTGRES_PASSWORD:-tptpay}@postgres:5432/tptpay?sslmode=disable"
       NATS_URL: "nats://nats:4222"
