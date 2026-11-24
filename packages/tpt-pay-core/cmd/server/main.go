@@ -99,6 +99,19 @@ func run() error {
 
 	paymentSvc := payment.NewService(pool, adpt, lgr)
 
+	// Compare the ledger with payment intents and refunds. Discrepancies are reported, never
+	// repaired automatically: a person decides what the correct record is.
+	go lgr.RunReconcileJob(ctx, cfg.Ledger.ReconcileInterval, func(r ledger.ReconcileReport, err error) {
+		switch {
+		case err != nil:
+			slog.Error("ledger reconciliation could not run", "err", err)
+		case !r.Healthy():
+			slog.Error("LEDGER RECONCILIATION FAILURE", "discrepancies", len(r.Discrepancies), "first", r.Discrepancies[0])
+		default:
+			slog.Debug("ledger reconciliation passed")
+		}
+	})
+
 	// Re-verify every ledger transaction on a schedule. A non-zero count is an incident.
 	go lgr.RunIntegrityJob(ctx, cfg.Ledger.IntegrityInterval, func(unbalanced int, err error) {
 		switch {

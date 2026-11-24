@@ -76,6 +76,18 @@ func TestLoad_LedgerIntegrityIntervalDefaultsAndValidates(t *testing.T) {
 	assert.Contains(t, err.Error(), "LEDGER_INTEGRITY_INTERVAL")
 }
 
+func TestLoad_LedgerReconcileIntervalDefaultsAndValidates(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, "24h0m0s", cfg.Ledger.ReconcileInterval.String())
+
+	t.Setenv("LEDGER_RECONCILE_INTERVAL", "-1s")
+	_, err = Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "LEDGER_RECONCILE_INTERVAL")
+}
+
 func TestLoad_TrustedProxies(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db?sslmode=disable")
 

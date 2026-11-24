@@ -26,10 +26,12 @@ type Config struct {
 	Ledger    LedgerConfig
 }
 
-// LedgerConfig controls the scheduled ledger integrity check.
+// LedgerConfig controls the scheduled ledger checks.
 type LedgerConfig struct {
 	// IntegrityInterval is how often every transaction is re-checked for balance.
 	IntegrityInterval time.Duration
+	// ReconcileInterval is how often the ledger is compared with payment intents and refunds.
+	ReconcileInterval time.Duration
 }
 
 type ServerConfig struct {
@@ -185,9 +187,13 @@ func Load() (*Config, error) {
 
 	cfg.Ledger = LedgerConfig{
 		IntegrityInterval: p.duration("LEDGER_INTEGRITY_INTERVAL", "1h"),
+		ReconcileInterval: p.duration("LEDGER_RECONCILE_INTERVAL", "24h"),
 	}
 	if cfg.Ledger.IntegrityInterval <= 0 {
 		errs = append(errs, errors.New("LEDGER_INTEGRITY_INTERVAL must be positive"))
+	}
+	if cfg.Ledger.ReconcileInterval <= 0 {
+		errs = append(errs, errors.New("LEDGER_RECONCILE_INTERVAL must be positive"))
 	}
 
 	cfg.Webhook = WebhookConfig{
