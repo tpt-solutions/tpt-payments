@@ -16,8 +16,10 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel"
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/api"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter/sandbox"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/config"
@@ -26,6 +28,7 @@ import (
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ratelimit"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/tracing"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/vault"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/webhook"
 )
@@ -97,7 +100,25 @@ func run() error {
 	}
 	slog.Info("adapter loaded", "type", cfg.Adapter.Type)
 
-	paymentSvc := payment.NewService(pool, adpt, lgr)
+	// Tracing is exported only when an OTLP endpoint is configured; spans are created either way.
+	tp, err := tracing.New(ctx, "tpt-pay-core", version)
+	if err != nil {
+		return fmt.Errorf("init tracing: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tp.Shutdown(shutdownCtx); err != nil {
+			slog.Warn("tracing shutdown incomplete", "err", err)
+		}
+	}()
+	otel.SetTracerProvider(tp)
+	if tp.Exporting() {
+		slog.Info("tracing enabled: exporting spans over OTLP")
+	}
+	tracedAdpt := adapter.Traced{Inner: adpt, Tracer: tp.Tracer("tpt-pay-core/adapter")}
+
+	paymentSvc := payment.NewService(pool, tracedAdpt, lgr)
 
 	// Compare the ledger with payment intents and refunds. Discrepancies are reported, never
 	// repaired automatically: a person decides what the correct record is.

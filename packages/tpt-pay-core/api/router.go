@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/otel"
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/api/handlers"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
@@ -39,6 +40,7 @@ func NewRouter(
 	// No RealIP: it trusts any client's X-Forwarded-For. Forwarded client addresses are only
 	// believed from TRUSTED_PROXIES, applied by cmd/server around this router.
 	r.Use(middleware.RequestID)
+	r.Use(middleware.Tracing(otel.GetTracerProvider()))
 	r.Use(chimw.Recoverer)
 	r.Use(middleware.LimitBody)
 	r.Use(metrics.Observe)
