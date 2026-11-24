@@ -33,6 +33,13 @@ type Config struct {
 	// ForceDeclineCode, if non-empty, causes all Authorize calls to return this
 	// decline code regardless of the card number.
 	ForceDeclineCode string
+
+	// ChaosRate is the fraction of adapter calls (0 to 1) that fail with a network error. Zero
+	// turns chaos off. A failed call is an unknown outcome, not a card decision.
+	ChaosRate float64
+	// ChaosSeed makes the failures repeatable: the same seed fails the same calls. Zero picks a
+	// seed from the clock.
+	ChaosSeed int64
 }
 
 // Sandbox is a fully in-memory CardNetworkAdapter. All state is held in memory
@@ -43,6 +50,8 @@ type Sandbox struct {
 	mu      sync.RWMutex
 	charges map[string]*charge // chargeID → state
 	tokens  map[string]*token  // paymentMethodID → card info
+
+	chaos *chaos // nil unless Config.ChaosRate is set
 }
 
 type charge struct {
@@ -68,6 +77,7 @@ func New(cfg Config) *Sandbox {
 		cfg:     cfg,
 		charges: make(map[string]*charge),
 		tokens:  make(map[string]*token),
+		chaos:   newChaos(cfg.ChaosRate, cfg.ChaosSeed),
 	}
 }
 
@@ -78,6 +88,9 @@ func Default() *Sandbox {
 
 func (s *Sandbox) Authorize(ctx context.Context, req adapter.AuthRequest) (*adapter.AuthResponse, error) {
 	s.maybeDelay(ctx)
+	if err := s.injectChaos(); err != nil {
+		return nil, err
+	}
 
 	// Forced decline for test harness control.
 	if s.cfg.ForceDeclineCode != "" {
@@ -123,6 +136,9 @@ func (s *Sandbox) Authorize(ctx context.Context, req adapter.AuthRequest) (*adap
 
 func (s *Sandbox) Capture(ctx context.Context, req adapter.CaptureRequest) (*adapter.CaptureResponse, error) {
 	s.maybeDelay(ctx)
+	if err := s.injectChaos(); err != nil {
+		return nil, err
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -155,6 +171,9 @@ func (s *Sandbox) Capture(ctx context.Context, req adapter.CaptureRequest) (*ada
 
 func (s *Sandbox) Void(ctx context.Context, req adapter.VoidRequest) (*adapter.VoidResponse, error) {
 	s.maybeDelay(ctx)
+	if err := s.injectChaos(); err != nil {
+		return nil, err
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -176,6 +195,9 @@ func (s *Sandbox) Void(ctx context.Context, req adapter.VoidRequest) (*adapter.V
 
 func (s *Sandbox) Refund(ctx context.Context, req adapter.RefundRequest) (*adapter.RefundResponse, error) {
 	s.maybeDelay(ctx)
+	if err := s.injectChaos(); err != nil {
+		return nil, err
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()

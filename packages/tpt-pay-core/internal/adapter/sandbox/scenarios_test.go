@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,4 +71,25 @@ func TestScenario_TableIsComplete(t *testing.T) {
 	for name, sc := range Scenarios {
 		assert.True(t, sc.DeclineCode != "" || sc.NetworkError || sc.Delay > 0, name)
 	}
+}
+
+// Every pm_card_* scenario has a pm_test_* alias with the same behaviour, and the originals still
+// work. The alias set is derived, so this guards against the two drifting apart.
+func TestScenario_PmTestAliasesMatchTheirPmCardOriginals(t *testing.T) {
+	s := New(Config{})
+	for name, sc := range Scenarios {
+		rest, ok := strings.CutPrefix(name, "pm_card_")
+		if !ok {
+			continue
+		}
+		alias := "pm_test_" + rest
+		got, found := Scenarios[alias]
+		require.True(t, found, "missing alias %s for %s", alias, name)
+		assert.Equal(t, sc, got, alias)
+	}
+
+	_, err := authorize(t, context.Background(), s, "pm_test_declined")
+	var cardErr *adapter.CardError
+	require.True(t, errors.As(err, &cardErr))
+	assert.Equal(t, "card_declined", cardErr.Code)
 }

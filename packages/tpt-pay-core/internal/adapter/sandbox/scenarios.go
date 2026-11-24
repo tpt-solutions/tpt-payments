@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter"
@@ -25,25 +26,29 @@ type Scenario struct {
 
 // Scenarios are the magic payment method IDs. They are part of the public test surface: changing
 // one is a breaking change for merchants' test suites.
-var Scenarios = map[string]Scenario{
-	"pm_card_declined": {
-		DeclineCode: "card_declined", Message: "Your card was declined.",
-	},
-	"pm_card_insufficient_funds": {
-		DeclineCode: "insufficient_funds", Message: "Your card has insufficient funds.",
-	},
-	"pm_card_expired": {
-		DeclineCode: "expired_card", Message: "Your card has expired.",
-	},
-	"pm_card_cvc_incorrect": {
-		DeclineCode: "incorrect_cvc", Message: "Your card's security code is incorrect.",
-	},
-	"pm_card_network_error": {
-		NetworkError: true,
-	},
-	"pm_card_slow": {
-		Delay: 2 * time.Second,
-	},
+//
+// The pm_test_* namespace names the same scenarios. It makes test tokens obvious at a glance and
+// cannot collide with the card-based payment method IDs the platform issues. Each pm_card_* name
+// keeps working, so existing test suites are unaffected.
+var Scenarios = buildScenarios()
+
+func buildScenarios() map[string]Scenario {
+	base := map[string]Scenario{
+		"pm_card_declined":           {DeclineCode: "card_declined", Message: "Your card was declined."},
+		"pm_card_insufficient_funds": {DeclineCode: "insufficient_funds", Message: "Your card has insufficient funds."},
+		"pm_card_expired":            {DeclineCode: "expired_card", Message: "Your card has expired."},
+		"pm_card_cvc_incorrect":      {DeclineCode: "incorrect_cvc", Message: "Your card's security code is incorrect."},
+		"pm_card_network_error":      {NetworkError: true},
+		"pm_card_slow":               {Delay: 2 * time.Second},
+	}
+	out := make(map[string]Scenario, 2*len(base))
+	for name, sc := range base {
+		out[name] = sc
+		if rest, ok := strings.CutPrefix(name, "pm_card_"); ok {
+			out["pm_test_"+rest] = sc
+		}
+	}
+	return out
 }
 
 // applyScenario runs a scripted outcome for pmID, if there is one. It returns handled=false for
