@@ -3,10 +3,13 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
 )
 
 type Config struct {
@@ -34,6 +37,9 @@ type ServerConfig struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
+	// TrustedProxies are the load balancers whose X-Forwarded-For header is believed. Empty means
+	// the header is never trusted. Set with TRUSTED_PROXIES (IPs or CIDR ranges, comma-separated).
+	TrustedProxies []*net.IPNet
 }
 
 type DatabaseConfig struct {
@@ -81,6 +87,10 @@ type RedisConfig struct {
 
 type AdapterConfig struct {
 	Type string // "sandbox" | "bank_sponsor" | "direct_acquiring"
+	// ChaosRate and ChaosSeed configure failure injection in the sandbox adapter. See
+	// internal/adapter/sandbox/chaos.go. Zero rate means off.
+	ChaosRate float64
+	ChaosSeed int64
 }
 
 type AppConfig struct {
@@ -115,6 +125,11 @@ func Load() (*Config, error) {
 		WriteTimeout: p.duration("SERVER_WRITE_TIMEOUT", "30s"),
 		IdleTimeout:  p.duration("SERVER_IDLE_TIMEOUT", "120s"),
 	}
+	trusted, err := middleware.ParseTrustedProxies(os.Getenv("TRUSTED_PROXIES"))
+	if err != nil {
+		errs = append(errs, fmt.Errorf("TRUSTED_PROXIES: %w", err))
+	}
+	cfg.Server.TrustedProxies = trusted
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -158,7 +173,11 @@ func Load() (*Config, error) {
 	if cfg.RateLimit.PerMinute < 0 {
 		errs = append(errs, errors.New("API_RATE_LIMIT must be 0 or more"))
 	}
-	cfg.Adapter = AdapterConfig{Type: getEnv("ADAPTER_TYPE", "sandbox")}
+	cfg.Adapter = AdapterConfig{
+		Type:      getEnv("ADAPTER_TYPE", "sandbox"),
+		ChaosRate: p.fraction("ADAPTER_CHAOS_RATE", "0"),
+		ChaosSeed: int64(p.integer("ADAPTER_CHAOS_SEED", "0")),
+	}
 	cfg.App = AppConfig{
 		Env:      getEnv("APP_ENV", "development"),
 		LogLevel: getEnv("LOG_LEVEL", "info"),
@@ -231,6 +250,17 @@ func (p parser) duration(key, fallback string) time.Duration {
 		*p.errs = append(*p.errs, fmt.Errorf("invalid duration for %s=%q: %w", key, v, err))
 	}
 	return d
+}
+
+// fraction reads a number from 0 to 1 inclusive.
+func (p parser) fraction(key, fallback string) float64 {
+	v := getEnv(key, fallback)
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil || f < 0 || f > 1 {
+		*p.errs = append(*p.errs, fmt.Errorf("%s=%q must be a number from 0 to 1", key, v))
+		return 0
+	}
+	return f
 }
 
 func (p parser) integer(key, fallback string) int {

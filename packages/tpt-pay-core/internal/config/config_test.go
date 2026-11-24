@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,4 +74,38 @@ func TestLoad_LedgerIntegrityIntervalDefaultsAndValidates(t *testing.T) {
 	_, err = Load()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "LEDGER_INTEGRITY_INTERVAL")
+}
+
+func TestLoad_TrustedProxies(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db?sslmode=disable")
+
+	t.Setenv("TRUSTED_PROXIES", "10.0.0.0/8, 203.0.113.7")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load with valid TRUSTED_PROXIES: %v", err)
+	}
+	if len(cfg.Server.TrustedProxies) != 2 {
+		t.Fatalf("TrustedProxies = %v, want two entries", cfg.Server.TrustedProxies)
+	}
+
+	t.Setenv("TRUSTED_PROXIES", "10.0.0.0/99")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "TRUSTED_PROXIES") {
+		t.Fatalf("Load with invalid TRUSTED_PROXIES: err = %v, want a TRUSTED_PROXIES error", err)
+	}
+}
+
+func TestLoad_ChaosRateMustBeAFraction(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://u:p@localhost:5432/db?sslmode=disable")
+
+	t.Setenv("ADAPTER_CHAOS_RATE", "0.25")
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.InDelta(t, 0.25, cfg.Adapter.ChaosRate, 1e-9)
+
+	for _, bad := range []string{"1.5", "-0.1", "lots"} {
+		t.Setenv("ADAPTER_CHAOS_RATE", bad)
+		_, err := Load()
+		require.Error(t, err, bad)
+		assert.Contains(t, err.Error(), "ADAPTER_CHAOS_RATE", bad)
+	}
 }

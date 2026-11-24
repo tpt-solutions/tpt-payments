@@ -103,8 +103,8 @@ func (a *Auditor) write(r *http.Request, action, resourceType, resourceID string
 	}
 }
 
-// clientIP returns the connection's address, or nil when it cannot be parsed. Forwarded
-// headers are not trusted here (see the router's note on RealIP).
+// clientIP returns the client's address, or nil when it cannot be parsed. r.RemoteAddr is the
+// connection's address, or the forwarded client when the peer is a TRUSTED_PROXIES entry.
 func clientIP(r *http.Request) any {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
