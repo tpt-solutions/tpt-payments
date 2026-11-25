@@ -8,7 +8,7 @@ const sidebars = {
       type: 'category',
       label: 'Guides',
       collapsed: false,
-      items: ['payments', 'refunds', 'webhooks', 'sandbox'],
+      items: ['payments', 'refunds', 'subscriptions', 'webhooks', 'sandbox'],
     },
     {
       type: 'category',
