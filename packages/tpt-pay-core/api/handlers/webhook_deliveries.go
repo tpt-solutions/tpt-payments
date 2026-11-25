@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -35,13 +36,23 @@ func (h *WebhookDeliveries) List(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = n
 	}
+	includePayload := false
+	switch inc := q.Get("include"); inc {
+	case "":
+	case "payload":
+		includePayload = true
+	default:
+		respondError(w, r, apierrors.InvalidParam("include", "the only supported value is payload"))
+		return
+	}
 	scope := scopeOf(r)
 	records, hasMore, err := webhook.ListDeliveries(r.Context(), h.pool, webhook.DeliveryFilter{
-		MerchantID:    scope.MerchantID,
-		Livemode:      scope.Livemode,
-		EndpointID:    q.Get("endpoint_id"),
-		Limit:         limit,
-		StartingAfter: q.Get("starting_after"),
+		MerchantID:     scope.MerchantID,
+		Livemode:       scope.Livemode,
+		EndpointID:     q.Get("endpoint_id"),
+		Limit:          limit,
+		StartingAfter:  q.Get("starting_after"),
+		IncludePayload: includePayload,
 	})
 	if err != nil {
 		respondError(w, r, err)
@@ -96,6 +107,9 @@ func deliveryJSON(rec webhook.DeliveryRecord) map[string]any {
 	}
 	if rec.DeliveredAt != nil {
 		out["delivered_at"] = rec.DeliveredAt.Unix()
+	}
+	if rec.Payload != nil {
+		out["payload"] = json.RawMessage(rec.Payload)
 	}
 	return out
 }

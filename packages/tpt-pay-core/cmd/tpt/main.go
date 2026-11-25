@@ -61,6 +61,8 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return cmdLogs(ctx, args[1:], stdout)
 	case "replay":
 		return cmdReplay(ctx, args[1:], stdout)
+	case "listen":
+		return cmdListen(ctx, args[1:], stdout)
 	case "events":
 		for _, e := range eventTypes {
 			fmt.Fprintln(stdout, e)
@@ -81,6 +83,7 @@ func usage(w io.Writer) {
   tpt login --api-key KEY [--base-url URL]
   tpt keys create [--type secret|publishable] [--mode test|live] [--name NAME]
   tpt trigger EVENT --forward-to URL --secret whsec_...
+  tpt listen --forward-to URL --secret whsec_... [--endpoint ID] [--interval 2s]
   tpt logs [--limit N] [--endpoint ID]
   tpt replay DELIVERY_ID
   tpt events`)

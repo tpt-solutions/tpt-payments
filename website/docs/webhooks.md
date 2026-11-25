@@ -61,3 +61,18 @@ Send a signed sample event with the CLI:
 ```bash
 tpt trigger payment_intent.succeeded --forward-to http://localhost:4000/webhooks --secret whsec_...
 ```
+
+## Listen locally without a tunnel
+
+`tpt listen` forwards the events your account receives to a local URL, signed with the local secret. It polls
+the delivery log over the API, so it needs no tunnel. Register an endpoint first (its URL can be anything, and
+the server's own attempts to it will fail, which is expected). Then:
+
+```bash
+tpt listen --forward-to http://localhost:4000/webhooks --secret whsec_... [--endpoint we_...] [--interval 2s]
+```
+
+Events that already exist when the listener starts are not forwarded. Each event is forwarded once, even when it
+was delivered to more than one endpoint. Press Ctrl-C to stop.
+
+The delivery log returns each event's payload with `GET /v1/webhook_deliveries?include=payload`.

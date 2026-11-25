@@ -29,6 +29,8 @@ type DeliveryRecord struct {
 	LastError      string
 	CreatedAt      time.Time
 	DeliveredAt    *time.Time
+	// Payload is the event JSON that was sent. Only filled when DeliveryFilter.IncludePayload is set.
+	Payload []byte
 }
 
 // DeliveryFilter scopes and pages a list of deliveries.
@@ -39,6 +41,8 @@ type DeliveryFilter struct {
 	Limit      int    // 1-100
 	// StartingAfter is the ID of the last delivery on the previous page.
 	StartingAfter string
+	// IncludePayload returns each delivery's event JSON. Off by default: payloads can be large.
+	IncludePayload bool
 }
 
 // ListDeliveries returns one page of deliveries, newest first, and whether another page exists.
@@ -74,7 +78,8 @@ func ListDeliveries(ctx context.Context, pool *pgxpool.Pool, f DeliveryFilter) (
 		            WHEN d.failed_at IS NOT NULL THEN 'failed'
 		            ELSE 'pending' END,
 		       d.attempt_count, d.last_http_status, COALESCE(d.last_error, ''),
-		       d.created_at, d.delivered_at
+		       d.created_at, d.delivered_at,
+		       CASE WHEN $7::boolean THEN d.payload::text END
 		FROM webhook_deliveries d
 		WHERE d.merchant_id = $1
 		  AND d.livemode = $2
@@ -82,7 +87,7 @@ func ListDeliveries(ctx context.Context, pool *pgxpool.Pool, f DeliveryFilter) (
 		  AND ($4::timestamptz IS NULL OR (d.created_at, d.id::text) < ($4::timestamptz, $5::text))
 		ORDER BY d.created_at DESC, d.id DESC
 		LIMIT $6
-	`, f.MerchantID, f.Livemode, f.EndpointID, cursorAt, cursorID, f.Limit+1)
+	`, f.MerchantID, f.Livemode, f.EndpointID, cursorAt, cursorID, f.Limit+1, f.IncludePayload)
 	if err != nil {
 		return nil, false, fmt.Errorf("list deliveries: %w", err)
 	}
@@ -91,9 +96,13 @@ func ListDeliveries(ctx context.Context, pool *pgxpool.Pool, f DeliveryFilter) (
 	var out []DeliveryRecord
 	for rows.Next() {
 		var rec DeliveryRecord
+		var payload *string
 		if err := rows.Scan(&rec.ID, &rec.EndpointID, &rec.EventType, &rec.EventID, &rec.Status,
-			&rec.Attempts, &rec.LastHTTPStatus, &rec.LastError, &rec.CreatedAt, &rec.DeliveredAt); err != nil {
+			&rec.Attempts, &rec.LastHTTPStatus, &rec.LastError, &rec.CreatedAt, &rec.DeliveredAt, &payload); err != nil {
 			return nil, false, fmt.Errorf("scan delivery: %w", err)
+		}
+		if payload != nil {
+			rec.Payload = []byte(*payload)
 		}
 		out = append(out, rec)
 	}
