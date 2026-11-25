@@ -1,44 +1,53 @@
 // tpt-payments/frontend/app/webhooks/page.tsx
 "use client"
 
-import { useState } from "react"
-import { Plus, Trash2, RefreshCw, Copy, ExternalLink, Eye, Clock } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { format } from "date-fns"
+import { Plus, Trash2, Copy, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { toast } from "@/components/ui/use-toast"
 
+// The shape the core API returns for a webhook endpoint. The signing secret is not in it; it is
+// returned once, by the create call.
 interface WebhookEndpoint {
   id: string
   url: string
-  description: string
-  enabled: boolean
-  events: string[]
+  enabled_events: string[]
+  status: "enabled" | "disabled"
+  livemode: boolean
+  secret_prefix: string
   created: number
-  secret: string
 }
 
-const mockEndpoints: WebhookEndpoint[] = [
-  {
-    id: "we_01h7nq3qz8k7x9v5b2n4m6l8",
-    url: "https://api.example.com/webhooks/payments",
-    description: "Production payment events",
-    enabled: true,
-    events: ["payment_intent.succeeded", "payment_intent.failed", "charge.refunded"],
-    created: Date.now() - 86400000 * 30,
-    secret: "whsec_abc123def456ghi789jkl012",
-  },
-]
+interface Delivery {
+  id: string
+  endpoint: string
+  event_type: string
+  event_id: string
+  status: string
+  attempts: number
+  last_http_status: number | null
+  last_error: string
+  created: number
+}
 
-// The event types the core service emits (packages/tpt-pay-core/internal/webhook).
+interface ListResponse<T> {
+  object: "list"
+  data: T[]
+  has_more: boolean
+}
+
+// The event types the core service emits (packages/tpt-pay-core/internal/webhook). Events the
+// core does not emit are not offered, so an endpoint cannot subscribe to nothing.
 const availableEvents = [
   "payment_intent.created",
   "payment_intent.succeeded",
@@ -47,72 +56,109 @@ const availableEvents = [
   "charge.refunded",
 ]
 
+async function readJson<T>(res: Response): Promise<T> {
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error?.message || body.error || `request failed (${res.status})`)
+  return body as T
+}
+
 export default function WebhooksPage() {
-  const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>(mockEndpoints)
-  const [newUrl, setNewUrl] = useState("")
-  const [newDescription, setNewDescription] = useState("")
-  const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set())
-  const [isCreating, setIsCreating] = useState(false)
-  const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(new Set())
+  const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([])
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const [deliveries, setDeliveries] = useState<Delivery[] | null>(null)
+  const [deliveriesError, setDeliveriesError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>("endpoints")
 
-  const toggleEnabled = (id: string) => {
-    setEndpoints(prev => prev.map(e => e.id === id ? { ...e, enabled: !e.enabled } : e))
-  }
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [newUrl, setNewUrl] = useState("")
+  const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set())
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isCreating, setIsCreating] = useState(false)
+  // The signing secret, shown once after creation and never again.
+  const [newSecret, setNewSecret] = useState<{ url: string; secret: string } | null>(null)
+
+  const loadEndpoints = useCallback(async () => {
+    setLoadError(null)
+    try {
+      const body = await readJson<ListResponse<WebhookEndpoint>>(await fetch("/api/tpt/webhook_endpoints?limit=100"))
+      setEndpoints(body.data)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "could not load endpoints")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const loadDeliveries = useCallback(async () => {
+    setDeliveriesError(null)
+    try {
+      const body = await readJson<ListResponse<Delivery>>(await fetch("/api/tpt/webhook_deliveries?limit=50"))
+      setDeliveries(body.data)
+    } catch (err) {
+      setDeliveriesError(err instanceof Error ? err.message : "could not load deliveries")
+      setDeliveries([])
+    }
+  }, [])
+
+  useEffect(() => {
+    loadEndpoints()
+  }, [loadEndpoints])
+
+  useEffect(() => {
+    if (activeTab === "logs") loadDeliveries()
+  }, [activeTab, loadDeliveries])
 
   const toggleEvent = (event: string) => {
-    setSelectedEvents(prev => {
+    setSelectedEvents((prev) => {
       const next = new Set(prev)
-      if (next.has(event)) {
-        next.delete(event)
-      } else {
-        next.add(event)
-      }
+      if (next.has(event)) next.delete(event)
+      else next.add(event)
       return next
-    })
-  }
-
-  const deleteEndpoint = (id: string) => {
-    setEndpoints(prev => prev.filter(e => e.id !== id))
-  }
-
-  const toggleRevealSecret = (id: string) => {
-    setRevealedSecrets(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      return next
-    })
-  }
-
-  const copyToClipboard = async (text: string) => {
-    await navigator.clipboard.writeText(text)
-    toast({
-      description: "Copied to clipboard",
     })
   }
 
   const createEndpoint = async () => {
+    setFormError(null)
+    if (!/^https:\/\/|^http:\/\/(localhost|127\.0\.0\.1)/.test(newUrl)) {
+      setFormError("The URL must start with https:// (http:// is allowed only for localhost in test mode).")
+      return
+    }
     setIsCreating(true)
-    setTimeout(() => {
-      const newEndpoint: WebhookEndpoint = {
-        id: `we_${Math.random().toString(36).substring(2, 14)}`,
-        url: newUrl,
-        description: newDescription,
-        enabled: true,
-        events: Array.from(selectedEvents),
-        created: Date.now(),
-        secret: `whsec_${Math.random().toString(36).substring(2, 28)}`,
-      }
-      setEndpoints(prev => [newEndpoint, ...prev])
+    try {
+      const body = await readJson<WebhookEndpoint & { secret: string }>(
+        await fetch("/api/tpt/webhook_endpoints", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+          body: JSON.stringify({ url: newUrl, enabled_events: Array.from(selectedEvents) }),
+        }),
+      )
+      setNewSecret({ url: body.url, secret: body.secret })
       setNewUrl("")
-      setNewDescription("")
       setSelectedEvents(new Set())
+      setDialogOpen(false)
+      await loadEndpoints()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "could not create the endpoint")
+    } finally {
       setIsCreating(false)
-    }, 1000)
+    }
+  }
+
+  const disableEndpoint = async (id: string) => {
+    try {
+      await readJson(await fetch(`/api/tpt/webhook_endpoint?id=${encodeURIComponent(id)}`, { method: "DELETE" }))
+      toast({ description: "Endpoint disabled. Its delivery history is kept." })
+      await loadEndpoints()
+    } catch (err) {
+      toast({ description: err instanceof Error ? err.message : "could not disable the endpoint" })
+    }
+  }
+
+  const copySecret = async (text: string) => {
+    await navigator.clipboard.writeText(text)
+    toast({ description: "Copied to clipboard" })
   }
 
   return (
@@ -120,77 +166,69 @@ export default function WebhooksPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Webhook Endpoints</h1>
-          <p className="text-muted-foreground">Configure endpoints to receive event notifications</p>
+          <p className="text-muted-foreground">Where TPT Pay sends event notifications</p>
         </div>
 
-        <Dialog>
+        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); setFormError(null) }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
-              Add Endpoint
+              Add endpoint
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Add Webhook Endpoint</DialogTitle>
+              <DialogTitle>Add webhook endpoint</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="url">Endpoint URL</Label>
-                <Input
-                  id="url"
-                  placeholder="https://your-domain.com/webhook"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                />
+                <Input id="url" placeholder="https://your-domain.com/webhook" value={newUrl} onChange={(e) => setNewUrl(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  placeholder="Production payment events"
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Events to send</Label>
+                <Label>Events to send (none selected means all)</Label>
                 <ScrollArea className="h-[200px] border rounded-md p-4">
                   <div className="space-y-3">
                     {availableEvents.map((event) => (
                       <div key={event} className="flex items-center gap-3">
-                        <Checkbox
-                          id={`event-${event}`}
-                          checked={selectedEvents.has(event)}
-                          onCheckedChange={() => toggleEvent(event)}
-                        />
-                        <Label htmlFor={`event-${event}`} className="font-mono text-sm">
-                          {event}
-                        </Label>
+                        <Checkbox id={`event-${event}`} checked={selectedEvents.has(event)} onCheckedChange={() => toggleEvent(event)} />
+                        <Label htmlFor={`event-${event}`} className="font-mono text-sm">{event}</Label>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
               </div>
-              <Button 
-                className="w-full" 
-                disabled={isCreating || !newUrl}
-                onClick={createEndpoint}
-              >
-                {isCreating ? "Creating endpoint..." : "Create Endpoint"}
+              {formError && <div role="alert" className="text-sm text-rose-500">{formError}</div>}
+              <Button className="w-full" disabled={isCreating || !newUrl} onClick={createEndpoint}>
+                {isCreating ? "Creating endpoint…" : "Create endpoint"}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
+      {newSecret && (
+        <div role="status" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
+          <p className="font-medium">Copy the signing secret now. It is shown only once.</p>
+          <p className="text-sm text-muted-foreground">Endpoint: <code className="font-mono">{newSecret.url}</code></p>
+          <div className="flex items-center gap-2">
+            <code className="text-sm font-mono break-all">{newSecret.secret}</code>
+            <Button variant="ghost" size="icon" aria-label="Copy signing secret" onClick={() => copySecret(newSecret.secret)}>
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setNewSecret(null)}>I have copied it</Button>
+        </div>
+      )}
+
       <Tabs defaultValue="endpoints" value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
-          <TabsTrigger value="logs">Delivery Logs</TabsTrigger>
+          <TabsTrigger value="logs">Delivery logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="endpoints" className="mt-4">
+          {loadError && <div role="alert" className="mb-4 text-sm text-rose-500">Could not load endpoints: {loadError}</div>}
           <div className="space-y-4">
             {endpoints.map((endpoint) => (
               <Card key={endpoint.id} className="p-6">
@@ -198,85 +236,78 @@ export default function WebhooksPage() {
                   <div className="flex-1 space-y-3">
                     <div className="flex items-center gap-3">
                       <code className="font-mono text-sm">{endpoint.url}</code>
-                      <Badge variant={endpoint.enabled ? "default" : "secondary"}>
-                        {endpoint.enabled ? "Enabled" : "Disabled"}
+                      <Badge variant={endpoint.status === "enabled" ? "default" : "secondary"}>
+                        {endpoint.status === "enabled" ? "Enabled" : "Disabled"}
                       </Badge>
+                      {!endpoint.livemode && <Badge variant="outline">test</Badge>}
                     </div>
-                    {endpoint.description && (
-                      <p className="text-sm text-muted-foreground">{endpoint.description}</p>
-                    )}
                     <div className="flex flex-wrap gap-2">
-                      {endpoint.events.slice(0, 3).map((event) => (
-                        <Badge key={event} variant="secondary" className="text-xs">
-                          {event}
-                        </Badge>
-                      ))}
-                      {endpoint.events.length > 3 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{endpoint.events.length - 3} more
-                        </Badge>
+                      {endpoint.enabled_events.length === 0 ? (
+                        <Badge variant="secondary" className="text-xs">all events</Badge>
+                      ) : (
+                        endpoint.enabled_events.map((event) => (
+                          <Badge key={event} variant="secondary" className="text-xs">{event}</Badge>
+                        ))
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="font-mono">
-                        Signing secret:
-                      </Badge>
-                      <code className="text-sm font-mono">
-                        {revealedSecrets.has(endpoint.id) ? endpoint.secret : "whsec_••••••••••••"}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => toggleRevealSecret(endpoint.id)}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => copyToClipboard(endpoint.secret)}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Created {new Date(endpoint.created).toLocaleDateString()}
-                    </p>
+                    <p className="text-sm text-muted-foreground font-mono">Signing secret {endpoint.secret_prefix}…</p>
+                    <p className="text-xs text-muted-foreground">Created {format(endpoint.created * 1000, "MMM d, yyyy")}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={endpoint.enabled}
-                      onCheckedChange={() => toggleEnabled(endpoint.id)}
-                      aria-label="Toggle endpoint"
-                    />
+                  {endpoint.status === "enabled" && (
                     <Button
                       variant="ghost"
-                      size="icon"
-                      onClick={() => deleteEndpoint(endpoint.id)}
                       className="text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                      onClick={() => disableEndpoint(endpoint.id)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Disable
                     </Button>
-                  </div>
+                  )}
                 </div>
               </Card>
             ))}
-            {endpoints.length === 0 && (
-              <Card className="p-8 text-center text-muted-foreground">
-                No webhook endpoints configured
-              </Card>
+            {!loading && !loadError && endpoints.length === 0 && (
+              <Card className="p-8 text-center text-muted-foreground">No webhook endpoints configured</Card>
             )}
           </div>
         </TabsContent>
 
         <TabsContent value="logs" className="mt-4">
           <Card className="p-6">
-            <div className="text-center text-muted-foreground py-8">
-              <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Delivery logs will appear here</p>
-            </div>
+            {deliveriesError && <p role="alert" className="mb-4 text-sm text-rose-500">Could not load deliveries: {deliveriesError}</p>}
+            {deliveries === null ? (
+              <p className="text-center text-muted-foreground py-8">Loading…</p>
+            ) : deliveries.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No deliveries yet</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Event</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>HTTP</TableHead>
+                    <TableHead>Attempts</TableHead>
+                    <TableHead>Last error</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {deliveries.map((d) => (
+                    <TableRow key={d.id}>
+                      <TableCell className="text-sm text-muted-foreground">{format(d.created * 1000, "MMM d, HH:mm")}</TableCell>
+                      <TableCell className="font-mono text-sm">{d.event_type}</TableCell>
+                      <TableCell>{d.status}</TableCell>
+                      <TableCell>{d.last_http_status ?? "—"}</TableCell>
+                      <TableCell>{d.attempts}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{d.last_error || "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </Card>
         </TabsContent>
       </Tabs>
