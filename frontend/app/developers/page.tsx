@@ -14,7 +14,7 @@ export default function DeveloperPortalPage() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900">Developer Portal</h1>
           <p className="mt-4 text-lg text-gray-600">
-            Everything you need to integrate with TPT Pay's payment platform.
+            Everything you need to integrate with TPT Pay&apos;s payment platform.
           </p>
         </div>
 

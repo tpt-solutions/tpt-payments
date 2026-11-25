@@ -106,7 +106,7 @@ export default function ChangelogPage() {
         <div className="mt-12 bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-blue-900 mb-3">API Versioning</h3>
           <p className="text-sm text-blue-800 mb-3">
-            TPT Pay uses date-based API versioning (YYYY-MM-DD format) to mirror Stripe's approach.
+            TPT Pay uses date-based API versioning (YYYY-MM-DD format) to mirror Stripe&apos;s approach.
           </p>
           <p className="text-sm text-blue-800 mb-3">
             Specify the API version by setting the <code className="bg-blue-100 px-1 rounded">Stripe-Version</code> header in your requests.

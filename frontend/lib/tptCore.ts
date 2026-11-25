@@ -36,7 +36,7 @@ function coreConfig(): { base: string; key: string } {
 export async function coreCall(
   method: "GET" | "POST" | "DELETE",
   path: string,
-  options: { params?: URLSearchParams; body?: unknown; idempotencyKey?: string } = {},
+  options: { params?: URLSearchParams; body?: unknown; idempotencyKey?: string; apiKey?: string } = {},
 ): Promise<NextResponse> {
   let cfg
   try {
@@ -47,9 +47,11 @@ export async function coreCall(
     }
     throw err
   }
+  // A caller-supplied key (the explorer) replaces the dashboard key for this request only.
+  const key = options.apiKey ?? cfg.key
   const query = options.params?.toString()
   const url = `${cfg.base}${path}${query ? `?${query}` : ""}`
-  const headers: Record<string, string> = { Authorization: `Bearer ${cfg.key}` }
+  const headers: Record<string, string> = { Authorization: `Bearer ${key}` }
   if (options.body !== undefined) headers["Content-Type"] = "application/json"
   if (options.idempotencyKey) headers["Idempotency-Key"] = options.idempotencyKey
   try {

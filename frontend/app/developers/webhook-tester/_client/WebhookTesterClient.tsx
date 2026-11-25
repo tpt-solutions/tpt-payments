@@ -103,10 +103,10 @@ export default function WebhookTesterPage() {
                 <pre className="text-xs bg-gray-900 text-gray-100 p-3 rounded overflow-x-auto">
                   {JSON.stringify(
                     {
-                      id: 'evt_test_' + Math.random().toString(36).substring(7),
+                      id: 'evt_test_example',
                       object: 'event',
                       type: selectedEvent,
-                      created: Math.floor(Date.now() / 1000),
+                      created: 1767225600,
                       data: {
                         object: {
                           id: 'pi_test_...',
@@ -169,7 +169,7 @@ export default function WebhookTesterPage() {
             <li>Create a webhook endpoint in your dashboard or via API.</li>
             <li>Make sure your endpoint is publicly accessible (use a tool like ngrok for local testing).</li>
             <li>Enter your webhook URL above and select an event type.</li>
-            <li>Click "Send Test Event" to trigger a test webhook.</li>
+            <li>Click &quot;Send Test Event&quot; to trigger a test webhook.</li>
             <li>Verify your endpoint receives and processes the event correctly.</li>
             <li>Check the signature using your webhook secret for verification.</li>
           </ol>
