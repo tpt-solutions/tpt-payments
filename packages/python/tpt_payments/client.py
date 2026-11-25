@@ -12,6 +12,8 @@ import asyncio
 import json
 import random
 import uuid
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 import aiohttp
@@ -23,6 +25,7 @@ DEFAULT_API_BASE = "https://api.tpt-payments.com/v1"
 DEFAULT_TIMEOUT = 30.0
 DEFAULT_MAX_RETRIES = 2
 _RETRYABLE_STATUS = frozenset({409, 429, 500, 502, 503, 504})
+MAX_RETRY_AFTER = 60.0
 
 
 class TPTPay:
@@ -108,6 +111,7 @@ class TPTPay:
                 ) as response:
                     body = await response.text()
                     request_id = response.headers.get("X-Request-ID")
+                    retry_after = response.headers.get("Retry-After")
                     status = response.status
             except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
                 if last_attempt:
@@ -120,7 +124,7 @@ class TPTPay:
 
             error = from_response(status, body, request_id)
             if status in _RETRYABLE_STATUS and not last_attempt:
-                await _backoff(attempt)
+                await _backoff(attempt, parse_retry_after(retry_after))
                 continue
             raise error
 
@@ -139,10 +143,42 @@ class TPTPay:
         await self.close()
 
 
-async def _backoff(attempt: int) -> None:
-    """Exponential backoff with jitter: about 0.5s, 1s, 2s, capped at 8s."""
+def parse_retry_after(value: Optional[str], now: Optional[datetime] = None) -> Optional[float]:
+    """Parse a Retry-After header (delay-seconds or an HTTP-date) into seconds.
+
+    Returns None when the header is absent or unusable.
+    """
+    if value is None:
+        return None
+    text = value.strip()
+    if text.isdigit():
+        return float(text)
+    try:
+        when = parsedate_to_datetime(text)
+    except (TypeError, ValueError):
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    current = now or datetime.now(timezone.utc)
+    return max(0.0, (when - current).total_seconds())
+
+
+async def _backoff(attempt: int, retry_after: Optional[float] = None) -> None:
+    """Wait before a retry.
+
+    A server's Retry-After (capped at MAX_RETRY_AFTER seconds) replaces the computed delay.
+    Otherwise: exponential backoff with jitter, about 0.5s, 1s, 2s, capped at 8s.
+    """
+    if retry_after is not None:
+        await _sleep(min(retry_after, MAX_RETRY_AFTER))
+        return
     delay = min(0.5 * (2**attempt), 8.0)
-    await asyncio.sleep(delay * random.uniform(0.5, 1.0))
+    await _sleep(delay * random.uniform(0.5, 1.0))
+
+
+async def _sleep(seconds: float) -> None:
+    """The SDK's own wait, separate from asyncio.sleep so tests can observe retry delays."""
+    await asyncio.sleep(seconds)
 
 
 class _Resource:

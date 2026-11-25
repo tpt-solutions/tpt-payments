@@ -139,6 +139,47 @@ async def test_transient_failure_is_retried_with_the_same_idempotency_key():
     assert len(set(keys)) == 1, "every retry must reuse the idempotency key"
 
 
+async def test_retry_after_is_honored_on_a_429(monkeypatch):
+    waits = []
+
+    async def fake_sleep(seconds):
+        waits.append(seconds)
+
+    monkeypatch.setattr("tpt_payments.client._sleep", fake_sleep)
+
+    async def limited(request, n):
+        if n < 2:
+            return web.json_response({"error": {"message": "slow down"}}, status=429, headers={"Retry-After": "7"})
+        return web.json_response({"id": "pi_ok"})
+
+    server, _ = await make_server({("POST", "/v1/payment_intents"): limited})
+    try:
+        client = TPTPay("sk_test_abc", api_base=str(server.make_url("/v1")), max_retries=2)
+        result = await client.payment_intents.create(amount=500, currency="usd")
+        await client.close()
+    finally:
+        await server.close()
+
+    assert result["id"] == "pi_ok"
+    assert waits == [7.0]
+
+
+def test_parse_retry_after_forms():
+    from datetime import datetime, timedelta, timezone
+    from email.utils import format_datetime
+
+    from tpt_payments.client import MAX_RETRY_AFTER, parse_retry_after
+
+    now = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    assert parse_retry_after("5", now) == 5.0
+    assert parse_retry_after(" 0 ", now) == 0.0
+    assert parse_retry_after(format_datetime(now + timedelta(seconds=10)), now) == pytest.approx(10.0)
+    assert parse_retry_after(format_datetime(now - timedelta(seconds=10)), now) == 0.0
+    assert parse_retry_after("soon", now) is None
+    assert parse_retry_after(None, now) is None
+    assert MAX_RETRY_AFTER == 60.0
+
+
 async def test_persistent_server_error_raises_api_error_after_retries():
     async def broken(request, n):
         return web.json_response({"error": {"message": "boom"}}, status=500)
