@@ -72,3 +72,23 @@ func TestAPIKeyCreate_RequiresAuthenticatedCaller(t *testing.T) {
 	rr := post(t, h, `{"type":"secret"}`)
 	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }
+
+func get(t *testing.T, h http.HandlerFunc, target string) *httptest.ResponseRecorder {
+	t.Helper()
+	rr := httptest.NewRecorder()
+	h(rr, httptest.NewRequest(http.MethodGet, target, nil))
+	return rr
+}
+
+func TestListHandlers_RejectBadLimitBeforeService(t *testing.T) {
+	keys := handlers.NewAPIKeys(nil).List
+	endpoints := handlers.NewWebhookEndpoints(nil, nil).List
+	for _, target := range []string{"/?limit=0", "/?limit=101", "/?limit=abc"} {
+		rr := get(t, keys, target)
+		assert.Equal(t, http.StatusBadRequest, rr.Code, "api_keys %s", target)
+		assert.Contains(t, rr.Body.String(), "limit")
+
+		rr = get(t, endpoints, target)
+		assert.Equal(t, http.StatusBadRequest, rr.Code, "webhook_endpoints %s", target)
+	}
+}

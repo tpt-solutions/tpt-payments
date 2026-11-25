@@ -87,6 +87,7 @@ func NewRouter(
 
 		// Webhook endpoints
 		we := handlers.NewWebhookEndpoints(pool, secrets)
+		r.With(secret).Get("/webhook_endpoints", we.List)
 		r.With(secret, audit.Record("webhook_endpoint.create", "webhook_endpoint")).Post("/webhook_endpoints", we.Create)
 		r.With(secret).Get("/webhook_endpoints/{id}", we.Retrieve)
 		r.With(secret, audit.Record("webhook_endpoint.delete", "webhook_endpoint")).Delete("/webhook_endpoints/{id}", we.Delete)
@@ -98,6 +99,7 @@ func NewRouter(
 
 		// API keys
 		ak := handlers.NewAPIKeys(apiKeySvc)
+		r.With(secret).Get("/api_keys", ak.List)
 		r.With(secret, audit.Record("api_key.create", "api_key")).Post("/api_keys", ak.Create)
 		r.With(secret, audit.Record("api_key.revoke", "api_key")).Delete("/api_keys/{id}", ak.Revoke)
 	})

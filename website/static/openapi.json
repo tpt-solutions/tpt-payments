@@ -206,6 +206,25 @@
           "secret": {
             "type": "string",
             "description": "Returned once, at creation only."
+          },
+          "prefix": {
+            "type": "string",
+            "description": "The first characters of the key, for recognition. The key itself is never shown again."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "revoked"
+            ]
+          },
+          "last_used": {
+            "type": "integer",
+            "description": "Unix time the key was last used."
+          },
+          "revoked": {
+            "type": "integer",
+            "description": "Unix time the key was revoked."
           }
         }
       },
@@ -862,6 +881,79 @@
       }
     },
     "/webhook_endpoints": {
+      "get": {
+        "summary": "List webhook endpoints",
+        "description": "Returns one page of the merchant's webhook endpoints in the key's mode, newest first. Signing secrets are never returned. Requires a secret key.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          {
+            "name": "starting_after",
+            "in": "query",
+            "required": false,
+            "description": "The id of the last webhook endpoint on the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of webhook endpoints",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "object",
+                    "data",
+                    "has_more"
+                  ],
+                  "properties": {
+                    "object": {
+                      "type": "string",
+                      "enum": [
+                        "list"
+                      ]
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookEndpoint"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "operationId": "listWebhookEndpoints"
+      },
       "post": {
         "summary": "Create a webhook endpoint",
         "description": "Requires a secret key. The signing secret is returned once.",
@@ -962,6 +1054,79 @@
       }
     },
     "/api_keys": {
+      "get": {
+        "summary": "List API keys",
+        "description": "Returns one page of the merchant's API keys in the key's mode, newest first. Revoked keys are included with their revocation time. Key secrets are never returned. Requires a secret key.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          {
+            "name": "starting_after",
+            "in": "query",
+            "required": false,
+            "description": "The id of the last API key on the previous page.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of API keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "object",
+                    "data",
+                    "has_more"
+                  ],
+                  "properties": {
+                    "object": {
+                      "type": "string",
+                      "enum": [
+                        "list"
+                      ]
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ApiKey"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "operationId": "listApiKeys"
+      },
       "post": {
         "summary": "Create an API key",
         "description": "Requires a secret key. New keys are created in the caller's mode.",

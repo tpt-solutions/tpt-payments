@@ -159,7 +159,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List webhook endpoints
+         * @description Returns one page of the merchant's webhook endpoints in the key's mode, newest first. Signing secrets are never returned. Requires a secret key.
+         */
+        get: operations["listWebhookEndpoints"];
         put?: never;
         /**
          * Create a webhook endpoint
@@ -203,7 +207,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List API keys
+         * @description Returns one page of the merchant's API keys in the key's mode, newest first. Revoked keys are included with their revocation time. Key secrets are never returned. Requires a secret key.
+         */
+        get: operations["listApiKeys"];
         put?: never;
         /**
          * Create an API key
@@ -429,6 +437,14 @@ export interface components {
             created?: number;
             /** @description Returned once, at creation only. */
             secret?: string;
+            /** @description The first characters of the key, for recognition. The key itself is never shown again. */
+            prefix?: string;
+            /** @enum {string} */
+            status?: "active" | "revoked";
+            /** @description Unix time the key was last used. */
+            last_used?: number;
+            /** @description Unix time the key was revoked. */
+            revoked?: number;
         };
         Refund: {
             id?: string;
@@ -806,6 +822,39 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
+    listWebhookEndpoints: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description The id of the last webhook endpoint on the previous page. */
+                starting_after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of webhook endpoints */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object: "list";
+                        url?: string;
+                        has_more: boolean;
+                        data: components["schemas"]["WebhookEndpoint"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     createWebhookEndpoint: {
         parameters: {
             query?: never;
@@ -886,6 +935,39 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["Error"];
+        };
+    };
+    listApiKeys: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description The id of the last API key on the previous page. */
+                starting_after?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of API keys */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object: "list";
+                        url?: string;
+                        has_more: boolean;
+                        data: components["schemas"]["ApiKey"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
         };
     };
     createApiKey: {

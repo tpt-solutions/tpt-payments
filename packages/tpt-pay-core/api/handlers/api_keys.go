@@ -99,13 +99,27 @@ func (h *APIKeys) Revoke(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// keyResponse describes a key. It carries the prefix and status, never the hash or the secret.
 func keyResponse(k *apikey.Key) map[string]interface{} {
-	return map[string]interface{}{
+	status := "active"
+	if k.RevokedAt != nil {
+		status = "revoked"
+	}
+	out := map[string]interface{}{
 		"id":      k.ID,
 		"object":  "api_key",
 		"type":    string(k.Type),
 		"mode":    string(k.Mode),
 		"name":    k.Name,
+		"prefix":  k.Prefix,
+		"status":  status,
 		"created": k.CreatedAt.Unix(),
 	}
+	if k.LastUsedAt != nil {
+		out["last_used"] = k.LastUsedAt.Unix()
+	}
+	if k.RevokedAt != nil {
+		out["revoked"] = k.RevokedAt.Unix()
+	}
+	return out
 }
