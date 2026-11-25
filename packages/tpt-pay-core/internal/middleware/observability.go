@@ -84,13 +84,13 @@ func (m *Metrics) Observe(next http.Handler) http.Handler {
 		if status >= 500 {
 			level = slog.LevelError
 		}
-		slog.Log(r.Context(), level, "request",
+		attrs := append([]any{
 			"method", r.Method,
 			"route", route,
 			"status", status,
 			"duration_ms", elapsed.Milliseconds(),
-			"request_id", GetRequestID(r.Context()),
-		)
+		}, LogAttrs(r.Context())...)
+		slog.Log(r.Context(), level, "request", attrs...)
 	})
 }
 
@@ -113,3 +113,4 @@ func statusLabel(status int) string {
 		return "2xx"
 	}
 }
+

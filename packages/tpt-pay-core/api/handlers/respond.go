@@ -24,7 +24,7 @@ func respond(w http.ResponseWriter, r *http.Request, status int, body interface{
 func respondError(w http.ResponseWriter, r *http.Request, err error) {
 	var apiErr *apierrors.APIError
 	if !errors.As(err, &apiErr) {
-		slog.Error("unhandled error", "request_id", middleware.GetRequestID(r.Context()), "err", err)
+		slog.Error("unhandled error", append(middleware.LogAttrs(r.Context()), "err", err)...)
 		apiErr = apierrors.Internal("An unexpected error occurred.")
 	}
 	respond(w, r, apiErr.StatusCode, apierrors.Response{Error: apiErr})

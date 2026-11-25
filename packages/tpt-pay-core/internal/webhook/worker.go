@@ -14,6 +14,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
 )
@@ -260,6 +264,16 @@ func (w *Worker) attempt(ctx context.Context, d claimedDelivery) Outcome {
 	now := w.now()
 	attempt := d.attemptCount + 1
 
+	// One span per attempt. It is a child of the request that caused the event, when the
+	// payload was enqueued inside a traced request; otherwise it starts a new trace.
+	ctx, span := otel.Tracer("tpt-pay-core/webhook").Start(ctx, "webhook.deliver",
+		trace.WithAttributes(
+			attribute.String("webhook.delivery_id", d.id),
+			attribute.String("webhook.event_id", d.eventID),
+			attribute.Int("webhook.attempt", attempt),
+		))
+	defer span.End()
+
 	if d.endpointStatus != "enabled" {
 		w.finish(ctx, d, attempt, now, 0, "endpoint is disabled", true)
 		return Outcome{Done: true}
@@ -271,6 +285,7 @@ func (w *Worker) attempt(ctx context.Context, d claimedDelivery) Outcome {
 	}
 
 	status, sendErr := w.send(ctx, d, string(secretBytes), now)
+	span.SetAttributes(attribute.Int("http.response.status_code", status))
 	if sendErr == nil && status >= 200 && status < 300 {
 		w.markDelivered(ctx, d.id, attempt, now, status)
 		return Outcome{Done: true}
@@ -280,6 +295,7 @@ func (w *Worker) attempt(ctx context.Context, d claimedDelivery) Outcome {
 	if sendErr != nil {
 		reason = sendErr.Error()
 	}
+	span.SetStatus(codes.Error, reason)
 	exhausted := attempt >= w.maxAttempts || now.Sub(d.createdAt) > w.window
 	w.finish(ctx, d, attempt, now, status, reason, exhausted)
 	if exhausted {
