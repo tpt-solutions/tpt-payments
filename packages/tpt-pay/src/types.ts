@@ -87,3 +87,22 @@ export interface Invoice {
   currency: string;
   created: number;
 }
+
+
+/** A failure window in sandbox time. The end is exclusive. */
+export interface TestClockOutage {
+  from: string;
+  to: string;
+  /** If set, Authorize returns this card decline inside the window. */
+  decline_code?: string;
+}
+
+/** The sandbox clock and its scheduled outages. */
+export interface TestClock {
+  object: 'test_clock';
+  frozen_time: string;
+  outages: TestClockOutage[];
+}
+
+/** Exactly one of seconds or frozen_time. */
+export type AdvanceTestClockParams = { seconds: number; frozen_time?: never } | { frozen_time: string; seconds?: never };

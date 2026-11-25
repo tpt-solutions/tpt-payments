@@ -1,4 +1,4 @@
-import { TPTPay, TPTPayError } from '../src/index';
+import { TPTPay, TPTPayError, parseRetryAfter } from '../src/index';
 
 type FetchMock = jest.Mock<Promise<Response>, [string, RequestInit?]>;
 
@@ -133,5 +133,81 @@ describe('requests', () => {
 
     await expect(client.paymentIntents.retrieve('pi_1')).rejects.toMatchObject({ type: 'api_connection_error' });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('Retry-After', () => {
+  it('waits for the server-specified delay before retrying a 429', async () => {
+    jest.useFakeTimers();
+    try {
+      const fetchMock = mockFetch(
+        json(429, { error: { message: 'slow down' } }, { 'Retry-After': '3' }),
+        json(200, intent),
+      );
+      const client = new TPTPay({ apiKey: 'sk_test_abc', maxRetries: 1, retryBaseDelayMs: 0 });
+      const pending = client.paymentIntents.retrieve('pi_1');
+      await jest.advanceTimersByTimeAsync(2_999);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      await expect(pending).resolves.toMatchObject({ id: 'pi_1' });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('caps an excessive Retry-After at 60 seconds', async () => {
+    jest.useFakeTimers();
+    try {
+      const fetchMock = mockFetch(json(503, { error: { message: 'busy' } }, { 'Retry-After': '86400' }), json(200, intent));
+      const client = new TPTPay({ apiKey: 'sk_test_abc', maxRetries: 1, retryBaseDelayMs: 0 });
+      const pending = client.paymentIntents.retrieve('pi_1');
+      await jest.advanceTimersByTimeAsync(60_000);
+      await expect(pending).resolves.toMatchObject({ id: 'pi_1' });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('parses delay-seconds, HTTP-dates and rejects junk', () => {
+    const now = Date.UTC(2030, 0, 1, 0, 0, 0);
+    expect(parseRetryAfter('5', now)).toBe(5_000);
+    expect(parseRetryAfter(' 0 ', now)).toBe(0);
+    expect(parseRetryAfter(new Date(now + 10_000).toUTCString(), now)).toBe(10_000);
+    expect(parseRetryAfter(new Date(now - 10_000).toUTCString(), now)).toBe(0);
+    expect(parseRetryAfter('soon', now)).toBeUndefined();
+    expect(parseRetryAfter(null, now)).toBeUndefined();
+  });
+});
+
+describe('test clocks', () => {
+  const clock = { object: 'test_clock', frozen_time: '2030-01-01T01:00:00Z', outages: [] };
+
+  it('advances the sandbox clock with a test key', async () => {
+    const fetchMock = mockFetch(json(200, clock));
+    const client = new TPTPay({ apiKey: 'sk_test_abc', retryBaseDelayMs: 0 });
+    const result = await client.testClocks.advance({ seconds: 3600 });
+    expect(result.frozen_time).toBe('2030-01-01T01:00:00Z');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/test_clocks\/advance$/);
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(init?.body as string)).toEqual({ seconds: 3600 });
+  });
+
+  it('schedules and clears outages', async () => {
+    const fetchMock = mockFetch(json(200, clock), json(200, clock));
+    const client = new TPTPay({ apiKey: 'sk_test_abc', retryBaseDelayMs: 0 });
+    await client.testClocks.scheduleOutage({ from: '2030-01-01T00:30:00Z', to: '2030-01-01T02:00:00Z' });
+    await client.testClocks.clearOutages();
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/test_clocks\/outages$/);
+    expect(fetchMock.mock.calls[1][1]?.method).toBe('DELETE');
+  });
+
+  it('refuses test-clock calls with a publishable key before sending anything', async () => {
+    const fetchMock = mockFetch();
+    const client = new TPTPay({ apiKey: 'pk_test_abc', retryBaseDelayMs: 0 });
+    await expect(client.testClocks.retrieve()).rejects.toMatchObject({ status: 403 });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

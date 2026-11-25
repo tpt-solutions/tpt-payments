@@ -372,6 +372,198 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/test_clocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the sandbox clock
+         * @description Returns the sandbox time and the scheduled outage windows. Test keys only (sk_test_...); live keys get 403. Sandbox only: the sandbox clock is per process and is not persisted.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The sandbox clock and its outage schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            object?: "test_clock";
+                            /**
+                             * Format: date-time
+                             * @description The sandbox time.
+                             */
+                            frozen_time?: string;
+                            outages?: components["schemas"]["SandboxOutage"][];
+                        };
+                    };
+                };
+                403: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/test_clocks/advance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move the sandbox clock forward
+         * @description Give exactly one of seconds (1 to 31622400 per call) or frozen_time (not before the current sandbox time, and within 366 days of it). Test keys only (sk_test_...); live keys get 403. Sandbox only: the sandbox clock is per process and is not persisted.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        seconds?: number;
+                        /** Format: date-time */
+                        frozen_time?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The sandbox clock and its outage schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            object?: "test_clock";
+                            /**
+                             * Format: date-time
+                             * @description The sandbox time.
+                             */
+                            frozen_time?: string;
+                            outages?: components["schemas"]["SandboxOutage"][];
+                        };
+                    };
+                };
+                403: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/test_clocks/outages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule a failure window
+         * @description Adapter calls whose sandbox time falls in [from, to) fail. The end is exclusive. Test keys only (sk_test_...); live keys get 403. Sandbox only: the sandbox clock is per process and is not persisted.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SandboxOutage"];
+                };
+            };
+            responses: {
+                /** @description The sandbox clock and its outage schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            object?: "test_clock";
+                            /**
+                             * Format: date-time
+                             * @description The sandbox time.
+                             */
+                            frozen_time?: string;
+                            outages?: components["schemas"]["SandboxOutage"][];
+                        };
+                    };
+                };
+                403: components["responses"]["Error"];
+            };
+        };
+        /**
+         * Clear every failure window
+         * @description Removes all scheduled windows. Test keys only (sk_test_...); live keys get 403. Sandbox only: the sandbox clock is per process and is not persisted.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The sandbox clock and its outage schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            object?: "test_clock";
+                            /**
+                             * Format: date-time
+                             * @description The sandbox time.
+                             */
+                            frozen_time?: string;
+                            outages?: components["schemas"]["SandboxOutage"][];
+                        };
+                    };
+                };
+                403: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -464,6 +656,14 @@ export interface components {
             livemode?: boolean;
             ledger_transaction_id?: string;
             failure_message?: string;
+        };
+        SandboxOutage: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** @description If set, Authorize returns this card decline inside the window. Other calls fail with a network error. */
+            decline_code?: string;
         };
     };
     responses: {

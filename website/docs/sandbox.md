@@ -27,3 +27,22 @@ For resilience tests, the server can fail a fraction of adapter calls with a net
 - `ADAPTER_CHAOS_SEED`: a fixed seed makes the same calls fail on every run.
 
 A chaos failure is an unknown outcome, as a real timeout is. Chaos applies only to the sandbox adapter.
+
+## Test clocks and outages
+
+The sandbox runs on its own clock. Test keys can move it forward, which exercises card expiry and
+scheduled failures without waiting. Live keys get `403`.
+
+- `GET /v1/test_clocks` returns the sandbox time and the scheduled outages.
+- `POST /v1/test_clocks/advance` moves time forward: `{"seconds": 86400}` (up to 366 days per call), or
+  `{"frozen_time": "2031-01-01T00:00:00Z"}`. Time never moves backwards.
+- `POST /v1/test_clocks/outages` schedules a failure window: `{"from": ..., "to": ...}`. Calls whose sandbox
+  time falls in `[from, to)` fail with a network error. Add `"decline_code": "do_not_honor"` to decline
+  authorizations instead.
+- `DELETE /v1/test_clocks/outages` clears every window.
+
+A card expires at the end of its expiry month on the sandbox clock, so advancing time past it makes a
+payment with that card decline with `expired_card`.
+
+The sandbox clock belongs to the server process. It starts at the wall-clock time and resets when the
+sandbox restarts. Subscriptions do not exist yet, so the clock does not advance them.

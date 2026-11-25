@@ -22,6 +22,7 @@ import (
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter/sandbox"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/clock"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/config"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ledger"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
@@ -90,10 +91,14 @@ func run() error {
 	apiKeySvc := apikey.NewService(pool)
 
 	// Adapter selection: in production, swap sandbox for BankSponsorAdapter.
+	// The sandbox runs on a test clock, which test keys can move forward (see /v1/test_clocks).
+	// It starts at the wall-clock time and is not persisted.
+	sandboxClock := clock.NewTest(time.Now().UTC())
 	adpt := sandbox.New(sandbox.Config{
 		ArtificialLatency: 50 * time.Millisecond,
 		ChaosRate:         cfg.Adapter.ChaosRate,
 		ChaosSeed:         cfg.Adapter.ChaosSeed,
+		Clock:             sandboxClock,
 	})
 	if cfg.Adapter.Type != "sandbox" {
 		return fmt.Errorf("adapter type %q not yet implemented — use 'sandbox'", cfg.Adapter.Type)
@@ -166,7 +171,8 @@ func run() error {
 	// Outside the router so that every request, including the operational endpoints, sees the
 	// client address the trusted-proxy rules produce.
 	router := middleware.TrustedProxyRealIP(cfg.Server.TrustedProxies)(
-		api.NewRouter(pool, paymentSvc, apiKeySvc, secrets, metricsRegistry, limiter))
+		api.NewRouter(pool, paymentSvc, apiKeySvc, secrets, metricsRegistry, limiter,
+			api.WithTestClocks(sandboxClock, adpt)))
 
 	// Webhook delivery worker: drains the outbox written by payment state changes.
 	deliveries := webhook.NewWorker(pool, secrets, webhook.WorkerConfig{

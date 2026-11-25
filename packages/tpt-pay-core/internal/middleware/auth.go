@@ -21,6 +21,12 @@ func AuthenticatedKey(ctx context.Context) *apikey.Key {
 	return k
 }
 
+// WithAuthenticatedKey returns a context carrying key as the verified key. Only tests that call
+// handlers directly, without RequireAuth, need it.
+func WithAuthenticatedKey(ctx context.Context, key *apikey.Key) context.Context {
+	return context.WithValue(ctx, authKey{}, key)
+}
+
 // MerchantID is a convenience helper that returns the merchant ID from the
 // authenticated key in the context.
 func MerchantID(ctx context.Context) string {

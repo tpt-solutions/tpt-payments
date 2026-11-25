@@ -17,10 +17,26 @@ import (
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/api/handlers"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/clock"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ratelimit"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
 )
+
+// RouterOption adds optional routes to NewRouter.
+type RouterOption func(*routerOptions)
+
+type routerOptions struct {
+	testClocks *handlers.TestClocks
+}
+
+// WithTestClocks serves the sandbox time-travel endpoints under /v1/test_clocks. Only the
+// sandbox server enables them, and they accept test keys only.
+func WithTestClocks(clk *clock.Test, outages handlers.OutageScheduler) RouterOption {
+	return func(o *routerOptions) {
+		o.testClocks = handlers.NewTestClocks(clk, outages)
+	}
+}
 
 // NewRouter builds and returns the fully configured HTTP router.
 //
@@ -32,7 +48,12 @@ func NewRouter(
 	secrets *secretbox.Box,
 	reg *prometheus.Registry,
 	limiter ratelimit.Limiter,
+	opts ...RouterOption,
 ) http.Handler {
+	var ro routerOptions
+	for _, opt := range opts {
+		opt(&ro)
+	}
 	r := chi.NewRouter()
 	metrics := middleware.NewMetrics(reg)
 
@@ -102,6 +123,14 @@ func NewRouter(
 		r.With(secret).Get("/api_keys", ak.List)
 		r.With(secret, audit.Record("api_key.create", "api_key")).Post("/api_keys", ak.Create)
 		r.With(secret, audit.Record("api_key.revoke", "api_key")).Delete("/api_keys/{id}", ak.Revoke)
+
+		// Sandbox time travel (only when the server enables it; test keys only).
+		if tc := ro.testClocks; tc != nil {
+			r.With(secret).Get("/test_clocks", tc.Get)
+			r.With(secret, audit.Record("test_clock.advance", "test_clock")).Post("/test_clocks/advance", tc.Advance)
+			r.With(secret, audit.Record("test_clock.outage_add", "test_clock")).Post("/test_clocks/outages", tc.AddOutage)
+			r.With(secret, audit.Record("test_clock.outages_clear", "test_clock")).Delete("/test_clocks/outages", tc.ClearOutages)
+		}
 	})
 
 	return r

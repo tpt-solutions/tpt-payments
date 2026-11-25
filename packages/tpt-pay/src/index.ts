@@ -19,8 +19,11 @@ import type {
   Invoice,
   PaymentIntent,
   Refund,
+  AdvanceTestClockParams,
   RequestOptions,
   Subscription,
+  TestClock,
+  TestClockOutage,
 } from './types';
 
 export { TPTPayError, SignatureVerificationError } from './errors';
@@ -104,6 +107,24 @@ export class TPTPay {
       this.request<Refund>('GET', `/refunds/${encodeURIComponent(id)}`, { secret: true }),
   };
 
+  /**
+   * Sandbox time travel. Test keys only (sk_test_...): live keys get 403. The sandbox clock is
+   * per server process and is not persisted, so it resets when the sandbox restarts.
+   */
+  readonly testClocks = {
+    retrieve: (): Promise<TestClock> => this.request<TestClock>('GET', '/test_clocks', { secret: true }),
+
+    /** Give exactly one of seconds (1 to 31622400 per call) or frozen_time (not before the current sandbox time). */
+    advance: (params: AdvanceTestClockParams): Promise<TestClock> =>
+      this.request<TestClock>('POST', '/test_clocks/advance', { body: params, secret: true }),
+
+    /** Fail adapter calls whose sandbox time is in [from, to). Give decline_code to decline authorizations instead. */
+    scheduleOutage: (params: TestClockOutage): Promise<TestClock> =>
+      this.request<TestClock>('POST', '/test_clocks/outages', { body: params, secret: true }),
+
+    clearOutages: (): Promise<TestClock> => this.request<TestClock>('DELETE', '/test_clocks/outages', { secret: true }),
+  };
+
   /** Planned: not yet served by the core service. */
   readonly subscriptions = {
     create: (params: { customer: string; price: string }, options?: RequestOptions): Promise<Subscription> =>
@@ -167,7 +188,7 @@ export class TPTPay {
 
       const error = errorFromResponse(response.status, text, response.headers.get('X-Request-ID') ?? undefined);
       if (RETRYABLE.has(response.status) && !last) {
-        await this.backoff(attempt);
+        await this.backoff(attempt, parseRetryAfter(response.headers.get('Retry-After')));
         continue;
       }
       throw error;
@@ -198,11 +219,32 @@ export class TPTPay {
     }
   }
 
-  private backoff(attempt: number): Promise<void> {
-    const base = this.retryBaseDelayMs * 2 ** attempt;
-    const delay = Math.min(base, 8_000) * (0.5 + Math.random() / 2);
+  /**
+   * Waits before the next attempt. A server's Retry-After (capped at MAX_RETRY_AFTER_MS) wins
+   * over the computed exponential delay, so a 429 or 503 is not retried sooner than asked.
+   */
+  private backoff(attempt: number, retryAfterMs?: number): Promise<void> {
+    let delay: number;
+    if (retryAfterMs !== undefined) {
+      delay = Math.min(retryAfterMs, MAX_RETRY_AFTER_MS);
+    } else {
+      const base = this.retryBaseDelayMs * 2 ** attempt;
+      delay = Math.min(base, 8_000) * (0.5 + Math.random() / 2);
+    }
     return new Promise((resolve) => setTimeout(resolve, delay));
   }
+}
+
+const MAX_RETRY_AFTER_MS = 60_000;
+
+/** Parses Retry-After as delay-seconds or an HTTP-date. Returns undefined when absent or unusable. */
+export function parseRetryAfter(value: string | null, now: number = Date.now()): number | undefined {
+  if (value === null) return undefined;
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) return Number(trimmed) * 1000;
+  const date = Date.parse(trimmed);
+  if (Number.isNaN(date)) return undefined;
+  return Math.max(0, date - now);
 }
 
 function randomKey(): string {

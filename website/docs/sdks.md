@@ -18,7 +18,8 @@ const pay = new TPTPay({
 ```
 
 The client retries connection failures and retryable responses (409, 429, 5xx) with backoff, and sends an
-idempotency key with each retry. Errors are `TPTPayError`, with `code`, `param` and `requestId`.
+idempotency key with each retry. When the server sends `Retry-After` (seconds or an HTTP date), the client waits
+that long instead, up to 60 seconds. Errors are `TPTPayError`, with `code`, `param` and `requestId`.
 
 ## Python: `tpt-payments`
 

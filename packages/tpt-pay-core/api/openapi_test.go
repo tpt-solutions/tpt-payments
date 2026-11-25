@@ -6,17 +6,24 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter/sandbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/clock"
 )
 
 // TestOpenAPIMatchesRouter fails when a route is added or removed without updating
 // openapi.json, so the published contract cannot drift from what is served.
 func TestOpenAPIMatchesRouter(t *testing.T) {
-	router := NewRouter(nil, nil, nil, nil, prometheus.NewRegistry(), nil)
+	// Built with the sandbox-only routes, so every route the sandbox server serves is checked.
+	clk := clock.NewTest(time.Now())
+	router := NewRouter(nil, nil, nil, nil, prometheus.NewRegistry(), nil,
+		WithTestClocks(clk, sandbox.New(sandbox.Config{Clock: clk})))
 	chiRoutes, ok := router.(chi.Routes)
 	require.True(t, ok, "router must be a chi router")
 	routes := map[string]bool{}

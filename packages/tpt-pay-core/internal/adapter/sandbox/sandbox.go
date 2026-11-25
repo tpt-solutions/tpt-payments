@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/clock"
 )
 
 // Test card numbers that trigger specific behaviours.
@@ -40,6 +41,10 @@ type Config struct {
 	// ChaosSeed makes the failures repeatable: the same seed fails the same calls. Zero picks a
 	// seed from the clock.
 	ChaosSeed int64
+
+	// Clock is the sandbox's time source: timestamps, card expiry and outage windows follow it.
+	// Nil uses the wall clock. A clock.Test lets a test-mode caller move time forward.
+	Clock clock.Clock
 }
 
 // Sandbox is a fully in-memory CardNetworkAdapter. All state is held in memory
@@ -52,6 +57,11 @@ type Sandbox struct {
 	tokens  map[string]*token  // paymentMethodID → card info
 
 	chaos *chaos // nil unless Config.ChaosRate is set
+
+	clock clock.Clock
+	outMu sync.Mutex
+	// outages are scheduled failure windows, in sandbox time (see outage.go).
+	outages []Outage
 }
 
 type charge struct {
@@ -73,11 +83,16 @@ type token struct {
 
 // New creates a Sandbox adapter with the given config.
 func New(cfg Config) *Sandbox {
+	clk := cfg.Clock
+	if clk == nil {
+		clk = clock.System{}
+	}
 	return &Sandbox{
 		cfg:     cfg,
 		charges: make(map[string]*charge),
 		tokens:  make(map[string]*token),
 		chaos:   newChaos(cfg.ChaosRate, cfg.ChaosSeed),
+		clock:   clk,
 	}
 }
 
@@ -89,6 +104,9 @@ func Default() *Sandbox {
 func (s *Sandbox) Authorize(ctx context.Context, req adapter.AuthRequest) (*adapter.AuthResponse, error) {
 	s.maybeDelay(ctx)
 	if err := s.injectChaos(); err != nil {
+		return nil, err
+	}
+	if err := s.injectOutage(true); err != nil {
 		return nil, err
 	}
 
@@ -107,6 +125,9 @@ func (s *Sandbox) Authorize(ctx context.Context, req adapter.AuthRequest) (*adap
 
 	// Card-number-based decline simulation.
 	if err := s.declineForCard(req.PaymentMethodID); err != nil {
+		return nil, err
+	}
+	if err := s.expiredCard(req.PaymentMethodID); err != nil {
 		return nil, err
 	}
 
@@ -130,13 +151,16 @@ func (s *Sandbox) Authorize(ctx context.Context, req adapter.AuthRequest) (*adap
 		ChargeID:     chargeID,
 		AuthCode:     authCode,
 		NetworkTxnID: "NET" + uuid.New().String()[:8],
-		AuthorizedAt: time.Now().UTC(),
+		AuthorizedAt: s.clock.Now(),
 	}, nil
 }
 
 func (s *Sandbox) Capture(ctx context.Context, req adapter.CaptureRequest) (*adapter.CaptureResponse, error) {
 	s.maybeDelay(ctx)
 	if err := s.injectChaos(); err != nil {
+		return nil, err
+	}
+	if err := s.injectOutage(false); err != nil {
 		return nil, err
 	}
 
@@ -164,14 +188,17 @@ func (s *Sandbox) Capture(ctx context.Context, req adapter.CaptureRequest) (*ada
 
 	return &adapter.CaptureResponse{
 		ChargeID:   ch.id,
-		CapturedAt: time.Now().UTC(),
-		SettleDate: time.Now().UTC().AddDate(0, 0, 1).Format("20060102"),
+		CapturedAt: s.clock.Now(),
+		SettleDate: s.clock.Now().AddDate(0, 0, 1).Format("20060102"),
 	}, nil
 }
 
 func (s *Sandbox) Void(ctx context.Context, req adapter.VoidRequest) (*adapter.VoidResponse, error) {
 	s.maybeDelay(ctx)
 	if err := s.injectChaos(); err != nil {
+		return nil, err
+	}
+	if err := s.injectOutage(false); err != nil {
 		return nil, err
 	}
 
@@ -189,13 +216,16 @@ func (s *Sandbox) Void(ctx context.Context, req adapter.VoidRequest) (*adapter.V
 	ch.voided = true
 	return &adapter.VoidResponse{
 		ChargeID: ch.id,
-		VoidedAt: time.Now().UTC(),
+		VoidedAt: s.clock.Now(),
 	}, nil
 }
 
 func (s *Sandbox) Refund(ctx context.Context, req adapter.RefundRequest) (*adapter.RefundResponse, error) {
 	s.maybeDelay(ctx)
 	if err := s.injectChaos(); err != nil {
+		return nil, err
+	}
+	if err := s.injectOutage(false); err != nil {
 		return nil, err
 	}
 
@@ -226,7 +256,7 @@ func (s *Sandbox) Refund(ctx context.Context, req adapter.RefundRequest) (*adapt
 		RefundID:   "re_sandbox_" + uuid.New().String(),
 		ChargeID:   ch.id,
 		Amount:     req.Amount,
-		RefundedAt: time.Now().UTC(),
+		RefundedAt: s.clock.Now(),
 	}, nil
 }
 
@@ -236,7 +266,7 @@ func (s *Sandbox) Tokenize(_ context.Context, req adapter.TokenizeRequest) (*ada
 	last4 := "4242"
 	brand := "visa"
 	expMonth := 12
-	expYear := time.Now().Year() + 3
+	expYear := s.clock.Now().Year() + 3
 
 	pmID := "pm_sandbox_" + uuid.New().String()
 
