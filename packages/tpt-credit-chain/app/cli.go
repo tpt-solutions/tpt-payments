@@ -121,10 +121,16 @@ func StatusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Query the chain status",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if GlobalApp == nil {
-				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
+			view, release, err := queryView(os.Getenv("TPTCREDIT_HOME"), false)
+			if err != nil {
+				return err
 			}
-			snapshot := GlobalApp.GetStateSnapshot()
+			defer release()
+			snapshot := view.GetStateSnapshot()
+			if GlobalApp == nil {
+				snapshot["source"] = "state_file"
+				snapshot["note"] = "read from the last state the node saved; event counts are not persisted and read as zero"
+			}
 			snapshotJSON, _ := json.MarshalIndent(snapshot, "", "  ")
 			fmt.Println(string(snapshotJSON))
 			return nil
@@ -323,13 +329,13 @@ func QueryAccountCmd() *cobra.Command {
 				}
 			}
 
-			if GlobalApp == nil {
-				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
+			view, release, err := queryView(os.Getenv("TPTCREDIT_HOME"), true)
+			if err != nil {
+				return err
 			}
-			GlobalApp.mu.Lock()
-			defer GlobalApp.mu.Unlock()
+			defer release()
 
-			acct := GlobalApp.IssuanceKeeper.GetAccount(addr)
+			acct := view.IssuanceKeeper.GetAccount(addr)
 			if acct == nil {
 				return fmt.Errorf("account %q not found", addr)
 			}
@@ -350,15 +356,15 @@ func QuerySupplyCmd() *cobra.Command {
 		Use:   "supply",
 		Short: "Query the total supply",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if GlobalApp == nil {
-				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
+			view, release, err := queryView(os.Getenv("TPTCREDIT_HOME"), true)
+			if err != nil {
+				return err
 			}
-			GlobalApp.mu.Lock()
-			defer GlobalApp.mu.Unlock()
+			defer release()
 
-			supply := GlobalApp.IssuanceKeeper.GetSupply()
-			totalBalance := GlobalApp.IssuanceKeeper.GetTotalBalance()
-			humanCount := GlobalApp.IssuanceKeeper.GetHumanCount()
+			supply := view.IssuanceKeeper.GetSupply()
+			totalBalance := view.IssuanceKeeper.GetTotalBalance()
+			humanCount := view.IssuanceKeeper.GetHumanCount()
 
 			fmt.Printf("Total supply (year credits): %s ucredit\n", supply.String())
 			fmt.Printf("Total spendable balance: %s ucredit\n", totalBalance.String())
@@ -376,13 +382,13 @@ func QueryAccountsCmd() *cobra.Command {
 		Use:   "accounts",
 		Short: "List all registered accounts",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if GlobalApp == nil {
-				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
+			view, release, err := queryView(os.Getenv("TPTCREDIT_HOME"), true)
+			if err != nil {
+				return err
 			}
-			GlobalApp.mu.Lock()
-			defer GlobalApp.mu.Unlock()
+			defer release()
 
-			accounts := GlobalApp.IssuanceKeeper.GetAccounts()
+			accounts := view.IssuanceKeeper.GetAccounts()
 			if len(accounts) == 0 {
 				fmt.Println("No registered accounts.")
 				return nil
@@ -421,16 +427,16 @@ func QueryBurnRecordCmd() *cobra.Command {
 				year = 1
 			}
 
-			if GlobalApp == nil {
-				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
+			view, release, err := queryView(os.Getenv("TPTCREDIT_HOME"), true)
+			if err != nil {
+				return err
 			}
-			GlobalApp.mu.Lock()
-			defer GlobalApp.mu.Unlock()
+			defer release()
 
-			record := GlobalApp.BurnKeeper.GetBurnRecord(addr, year)
+			record := view.BurnKeeper.GetBurnRecord(addr, year)
 			if record == nil {
 				fmt.Printf("No burn record for %s year %d\n", addr, year)
-				history := GlobalApp.BurnKeeper.GetBurnRecordsByAddress(addr)
+				history := view.BurnKeeper.GetBurnRecordsByAddress(addr)
 				if len(history) > 0 {
 					fmt.Println("Available records:")
 					for _, r := range history {
@@ -463,13 +469,13 @@ func QueryBurnSummaryCmd() *cobra.Command {
 				year = 1
 			}
 
-			if GlobalApp == nil {
-				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
+			view, release, err := queryView(os.Getenv("TPTCREDIT_HOME"), true)
+			if err != nil {
+				return err
 			}
-			GlobalApp.mu.Lock()
-			defer GlobalApp.mu.Unlock()
+			defer release()
 
-			summary := GlobalApp.BurnKeeper.GetBurnSummary(year)
+			summary := view.BurnKeeper.GetBurnSummary(year)
 			if summary == nil {
 				return fmt.Errorf("no burn summary for year %d", year)
 			}
@@ -490,13 +496,13 @@ func QueryBurnSummariesCmd() *cobra.Command {
 		Use:   "summaries",
 		Short: "List all burn summaries",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if GlobalApp == nil {
-				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
+			view, release, err := queryView(os.Getenv("TPTCREDIT_HOME"), true)
+			if err != nil {
+				return err
 			}
-			GlobalApp.mu.Lock()
-			defer GlobalApp.mu.Unlock()
+			defer release()
 
-			summaries := GlobalApp.BurnKeeper.GetAllBurnSummaries()
+			summaries := view.BurnKeeper.GetAllBurnSummaries()
 			if len(summaries) == 0 {
 				fmt.Println("No burn summaries yet.")
 				return nil
