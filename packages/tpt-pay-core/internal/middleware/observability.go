@@ -113,4 +113,3 @@ func statusLabel(status int) string {
 		return "2xx"
 	}
 }
-

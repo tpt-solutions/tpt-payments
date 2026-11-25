@@ -16,8 +16,8 @@ import (
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/api/handlers"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/apikey"
-	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/clock"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/middleware"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ratelimit"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"

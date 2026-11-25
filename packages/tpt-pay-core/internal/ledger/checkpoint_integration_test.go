@@ -73,4 +73,3 @@ func TestCheckpoint_RowsAreAppendOnly(t *testing.T) {
 	_, err = pool.Exec(ctx, `DELETE FROM ledger_checkpoints`)
 	assert.ErrorContains(t, err, "append-only")
 }
-
