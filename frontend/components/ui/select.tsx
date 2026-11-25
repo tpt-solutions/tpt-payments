@@ -11,6 +11,8 @@ interface SelectContextValue {
   /** Labels of the items, keyed by value, so SelectValue can show the chosen item's text. */
   labels: Record<string, string>
   registerLabel: (value: string, label: string) => void
+  /** Links the trigger (aria-controls) to the listbox it opens. */
+  listboxId: string
 }
 
 const SelectContext = React.createContext<SelectContextValue | null>(null)
@@ -33,6 +35,7 @@ export function Select({ value, defaultValue = '', onValueChange, children }: Se
   const [open, setOpen] = React.useState(false)
   const [labels, setLabels] = React.useState<Record<string, string>>({})
   const current = value ?? internal
+  const listboxId = React.useId()
 
   const handleChange = React.useCallback(
     (next: string) => {
@@ -48,7 +51,7 @@ export function Select({ value, defaultValue = '', onValueChange, children }: Se
 
   return (
     <SelectContext.Provider
-      value={{ value: current, onValueChange: handleChange, open, setOpen, labels, registerLabel }}
+      value={{ value: current, onValueChange: handleChange, open, setOpen, labels, registerLabel, listboxId }}
     >
       <div className="relative">{children}</div>
     </SelectContext.Provider>
@@ -57,13 +60,14 @@ export function Select({ value, defaultValue = '', onValueChange, children }: Se
 
 export const SelectTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
   ({ className, children, ...props }, ref) => {
-    const { open, setOpen } = useSelect()
+    const { open, setOpen, listboxId } = useSelect()
     return (
       <button
         ref={ref}
         type="button"
         role="combobox"
         aria-expanded={open}
+        aria-controls={listboxId}
         aria-haspopup="listbox"
         onClick={() => setOpen(!open)}
         className={cn(
@@ -91,7 +95,7 @@ export function SelectValue({ placeholder }: { placeholder?: string }) {
  * before the user opens the list.
  */
 export function SelectContent({ className, children }: React.HTMLAttributes<HTMLDivElement>) {
-  const { open, setOpen } = useSelect()
+  const { open, setOpen, listboxId } = useSelect()
 
   React.useEffect(() => {
     if (!open) return
@@ -102,6 +106,7 @@ export function SelectContent({ className, children }: React.HTMLAttributes<HTML
 
   return (
     <div
+      id={listboxId}
       role="listbox"
       hidden={!open}
       onMouseDown={(e) => e.stopPropagation()}
