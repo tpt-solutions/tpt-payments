@@ -107,7 +107,7 @@ func (l *Ledger) Reconcile(ctx context.Context) (ReconcileReport, error) {
 	}
 
 	if err := l.reconcileQuery(ctx, add, `
-		SELECT lt.id::text FROM ledger_transactions lt
+		SELECT COALESCE(lt.reference_id, lt.id::text) FROM ledger_transactions lt
 		WHERE lt.type = 'payment_intent'
 		  AND NOT EXISTS (SELECT 1 FROM payment_intents pi WHERE pi.id = lt.reference_id)
 	`, DiscrepancyOrphanPayment, "payment_intent posting refers to no payment intent"); err != nil {
@@ -115,7 +115,7 @@ func (l *Ledger) Reconcile(ctx context.Context) (ReconcileReport, error) {
 	}
 
 	if err := l.reconcileQuery(ctx, add, `
-		SELECT lt.id::text FROM ledger_transactions lt
+		SELECT COALESCE(lt.reference_id, lt.id::text) FROM ledger_transactions lt
 		WHERE lt.type = 'refund'
 		  AND NOT EXISTS (SELECT 1 FROM refunds r WHERE r.id = lt.reference_id)
 	`, DiscrepancyOrphanRefund, "refund posting refers to no refund"); err != nil {
