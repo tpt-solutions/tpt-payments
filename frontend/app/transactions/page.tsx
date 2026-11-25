@@ -1,9 +1,9 @@
 // tpt-payments/frontend/app/transactions/page.tsx
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useState } from "react"
 import { format } from "date-fns"
-import { Search, Filter, ChevronLeft, ChevronRight, ArrowUpDown, Eye } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Eye } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -11,180 +11,158 @@ import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { STATUS_LABELS, formatMinor, type IntentStatus, type PaymentIntent } from "@/lib/payments"
 
-interface Transaction {
-  id: string
-  amount: number
-  currency: string
-  status: "succeeded" | "processing" | "failed" | "refunded"
-  created: number
-  description: string
-  customer: string
-  payment_method: string
+interface ListResponse {
+  object: "list"
+  data: PaymentIntent[]
+  has_more: boolean
 }
 
-const mockTransactions: Transaction[] = Array.from({ length: 50 }, (_, i) => ({
-  id: `pi_${Math.random().toString(36).substring(2, 14)}`,
-  amount: Math.floor(Math.random() * 25000) + 500,
-  currency: "usd",
-  status: ["succeeded", "processing", "failed", "refunded"][Math.floor(Math.random() * 4)] as Transaction["status"],
-  created: Date.now() - i * 3600000 * Math.floor(Math.random() * 48),
-  description: ["Product purchase", "Subscription renewal", "Donation", "Service payment"][Math.floor(Math.random() * 4)],
-  customer: `cus_${Math.random().toString(36).substring(2, 10)}`,
-  payment_method: ["card", "bank_transfer"][Math.floor(Math.random() * 2)],
-}))
+const PAGE_SIZE = 10
 
-const ITEMS_PER_PAGE = 10
+const BADGE_CLASS: Record<IntentStatus, string> = {
+  succeeded: "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20",
+  requires_capture: "bg-sky-500/10 text-sky-500 hover:bg-sky-500/20",
+  processing: "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20",
+  requires_action: "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20",
+  requires_payment_method: "bg-slate-500/10 text-slate-500 hover:bg-slate-500/20",
+  requires_confirmation: "bg-slate-500/10 text-slate-500 hover:bg-slate-500/20",
+  canceled: "bg-rose-500/10 text-rose-500 hover:bg-rose-500/20",
+}
 
 export default function TransactionsPage() {
   const router = useRouter()
+  const [status, setStatus] = useState<string>("all")
   const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [page, setPage] = useState(1)
-  const [sortField, setSortField] = useState<keyof Transaction>("created")
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
+  // cursors[i] is the starting_after value for page i+1; the first page has none.
+  const [cursors, setCursors] = useState<(string | null)[]>([null])
+  const [rows, setRows] = useState<PaymentIntent[]>([])
+  const [hasMore, setHasMore] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const filteredTransactions = useMemo(() => {
-    let filtered = [...mockTransactions]
+  const pageIndex = cursors.length - 1
 
-    if (search) {
-      const searchLower = search.toLowerCase()
-      filtered = filtered.filter(tx =>
-        tx.id.toLowerCase().includes(searchLower) ||
-        tx.description.toLowerCase().includes(searchLower) ||
-        tx.customer.toLowerCase().includes(searchLower)
-      )
-    }
+  useEffect(() => {
+    const controller = new AbortController()
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE) })
+    if (status !== "all") params.set("status", status)
+    const cursor = cursors[pageIndex]
+    if (cursor) params.set("starting_after", cursor)
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(tx => tx.status === statusFilter)
-    }
+    setLoading(true)
+    setError(null)
+    fetch(`/api/tpt/payment_intents?${params}`, { signal: controller.signal })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(body.error || `request failed (${res.status})`)
+        return body as ListResponse
+      })
+      .then((body) => {
+        setRows(body.data)
+        setHasMore(body.has_more)
+      })
+      .catch((err) => {
+        if (err.name === "AbortError") return
+        setRows([])
+        setHasMore(false)
+        setError(err.message)
+      })
+      .finally(() => setLoading(false))
+    return () => controller.abort()
+  }, [status, pageIndex, cursors])
 
-    filtered.sort((a, b) => {
-      const aVal = a[sortField]
-      const bVal = b[sortField]
-      const modifier = sortDirection === "asc" ? 1 : -1
-      
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        return aVal.localeCompare(bVal) * modifier
-      }
-      
-      return ((aVal as number) - (bVal as number)) * modifier
-    })
+  // The API pages by cursor and filters by status. Free-text search can only narrow the page
+  // that is loaded, so it is labelled that way.
+  const visible = search
+    ? rows.filter((tx) =>
+        tx.id.toLowerCase().includes(search.toLowerCase()) ||
+        (tx.metadata?.order_id ?? "").toLowerCase().includes(search.toLowerCase()))
+    : rows
 
-    return filtered
-  }, [search, statusFilter, sortField, sortDirection])
-
-  const paginatedTransactions = useMemo(() => {
-    const start = (page - 1) * ITEMS_PER_PAGE
-    return filteredTransactions.slice(start, start + ITEMS_PER_PAGE)
-  }, [filteredTransactions, page])
-
-  const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)
-
-  const handleSort = (field: keyof Transaction) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc")
-    } else {
-      setSortField(field)
-      setSortDirection("desc")
-    }
+  const changeFilter = (value: string) => {
+    setStatus(value)
+    setCursors([null])
   }
 
-  const getStatusBadge = (status: Transaction["status"]) => {
-    const variants: Record<Transaction["status"], string> = {
-      succeeded: "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20",
-      processing: "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20",
-      failed: "bg-rose-500/10 text-rose-500 hover:bg-rose-500/20",
-      refunded: "bg-slate-500/10 text-slate-500 hover:bg-slate-500/20",
-    }
-    return variants[status]
+  const next = () => {
+    const last = rows[rows.length - 1]
+    if (last) setCursors((c) => [...c, last.id])
   }
+
+  const prev = () => setCursors((c) => (c.length > 1 ? c.slice(0, -1) : c))
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">View and manage all payment transactions</p>
+          <p className="text-muted-foreground">Payment intents, newest first</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by ID, description, or customer..."
+              placeholder="Filter this page by ID or order ID..."
               className="pl-8"
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value)
-                setPage(1)
-              }}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
-            <SelectTrigger className="w-full sm:w-[180px]">
+          <Select value={status} onValueChange={changeFilter}>
+            <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="succeeded">Succeeded</SelectItem>
-              <SelectItem value="processing">Processing</SelectItem>
-              <SelectItem value="failed">Failed</SelectItem>
-              <SelectItem value="refunded">Refunded</SelectItem>
+              {(Object.keys(STATUS_LABELS) as IntentStatus[]).map((s) => (
+                <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
+      {error && (
+        <div role="alert" className="rounded-md border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-500">
+          Could not load transactions: {error}
+        </div>
+      )}
+
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer" onClick={() => handleSort("id")}>
-                <div className="flex items-center gap-1">
-                  ID
-                  <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
-                </div>
-              </TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort("amount")}>
-                <div className="flex items-center gap-1">
-                  Amount
-                  <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
-                </div>
-              </TableHead>
+              <TableHead>ID</TableHead>
+              <TableHead>Order</TableHead>
+              <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort("created")}>
-                <div className="flex items-center gap-1">
-                  Created
-                  <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
-                </div>
-              </TableHead>
+              <TableHead>Created</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedTransactions.map((tx) => (
+            {visible.map((tx) => (
               <TableRow key={tx.id} className="group">
                 <TableCell className="font-mono text-sm">{tx.id}</TableCell>
-                <TableCell>{tx.description}</TableCell>
-                <TableCell className="font-medium">
-                  ${(tx.amount / 100).toFixed(2)}
-                </TableCell>
+                <TableCell>{tx.metadata?.order_id || "—"}</TableCell>
+                <TableCell className="font-medium">{formatMinor(tx.amount, tx.currency)}</TableCell>
                 <TableCell>
-                  <Badge variant="secondary" className={getStatusBadge(tx.status)}>
-                    {tx.status}
+                  <Badge variant="secondary" className={BADGE_CLASS[tx.status]}>
+                    {STATUS_LABELS[tx.status]}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {format(tx.created, "MMM d, HH:mm")}
+                  {format(tx.created * 1000, "MMM d, HH:mm")}
                 </TableCell>
                 <TableCell>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="opacity-0 group-hover:opacity-100"
+                    aria-label={`View ${tx.id}`}
                     onClick={() => router.push(`/transactions/${tx.id}`)}
                   >
                     <Eye className="h-4 w-4" />
@@ -192,10 +170,17 @@ export default function TransactionsPage() {
                 </TableCell>
               </TableRow>
             ))}
-            {paginatedTransactions.length === 0 && (
+            {!loading && visible.length === 0 && (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  No transactions found
+                  {error ? "Unavailable" : "No transactions found"}
+                </TableCell>
+              </TableRow>
+            )}
+            {loading && (
+              <TableRow>
+                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                  Loading…
                 </TableCell>
               </TableRow>
             )}
@@ -204,26 +189,14 @@ export default function TransactionsPage() {
 
         <div className="flex items-center justify-between px-4 py-4 border-t">
           <div className="text-sm text-muted-foreground">
-            Showing {((page - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(page * ITEMS_PER_PAGE, filteredTransactions.length)} of {filteredTransactions.length}
+            {rows.length > 0 ? `${rows.length} on this page` : " "}
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-            >
+            <Button variant="ghost" size="icon" disabled={pageIndex === 0 || loading} onClick={prev} aria-label="Previous page">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="text-sm font-medium">
-              Page {page} of {totalPages}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={page === totalPages}
-              onClick={() => setPage(p => p + 1)}
-            >
+            <div className="text-sm font-medium">Page {pageIndex + 1}</div>
+            <Button variant="ghost" size="icon" disabled={!hasMore || loading} onClick={next} aria-label="Next page">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

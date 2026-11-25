@@ -19,6 +19,15 @@ committed to source, and every auth route returns `503` until the settings are p
    node -e "const c=require('crypto');const s=c.randomBytes(16);c.scrypt(process.argv[1],s,32,(e,k)=>console.log('scrypt\$'+s.toString('hex')+'\$'+k.toString('hex')))" 'your-password'
    ```
 
+Transactions are read from the payments API through server routes under `/api/tpt/`. Set
+`TPT_API_BASE` (the API base URL) and `TPT_DASHBOARD_SECRET_KEY` (a secret key; `sk_test_` while
+developing). The key stays on the server. The routes check the session themselves, because the
+dashboard middleware matches pages, not `/api`.
+
+Note: `next.config.js` rewrites every other `/api/*` path to `http://localhost:8080/v1`. Routes
+under `/api/tpt/` are static files and take precedence over that rewrite, but a dynamic
+`[id]` route under `/api` would not be reached, which is why the retrieve route takes `?id=`.
+
 What the app enforces:
 
 - Dashboard routes (`/dashboard`, `/api-keys`, `/transactions`, `/webhooks`, `/settings`) redirect
