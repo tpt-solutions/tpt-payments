@@ -179,6 +179,10 @@ func run() error {
 		api.NewRouter(pool, paymentSvc, apiKeySvc, secrets, metricsRegistry, limiter,
 			api.WithTestClocks(sandboxClock, adpt),
 			api.WithSubscriptions(subSvc)))
+	handler, err := withDashboardAuth(pool, router)
+	if err != nil {
+		return err
+	}
 
 	// Webhook delivery worker: drains the outbox written by payment state changes.
 	deliveries := webhook.NewWorker(pool, secrets, webhook.WorkerConfig{
@@ -197,7 +201,7 @@ func run() error {
 
 	srv := &http.Server{
 		Addr:         cfg.Server.Addr,
-		Handler:      router,
+		Handler:      handler,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  cfg.Server.IdleTimeout,

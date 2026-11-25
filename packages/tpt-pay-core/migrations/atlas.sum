@@ -1,4 +1,4 @@
-h1:0wTe6T+KbhTd5iTbFkrEoC4c7lSnlSeNnsIh0VkA9yI=
+h1:Xkb+qB77XcAgUyoXWlWTN2+2vphiIcq8tIsABwOOhus=
 20260101000001_create_merchants.sql h1:8Gxv82sTIiOoheWS2+z3DOj2KrMkm62evFi+m0STHjI=
 20260101000002_create_ledger.sql h1:QNa/lMwgpiHgImj4XrXaff6YWnCHD1bfNbK2HmrXHMk=
 20260101000003_create_payment_intents.sql h1:ybWvWlwoHLbpt9VZRDbJic0ZHrxKCPoh54U48WOQOwg=
@@ -18,3 +18,4 @@ h1:0wTe6T+KbhTd5iTbFkrEoC4c7lSnlSeNnsIh0VkA9yI=
 20260101000018_ledger_checkpoints.sql h1:EgQHUTKNH4SQ0wc937SeFNJwfbBP2ssLecMfdVNNVsE=
 20260101000019_payment_intent_risk_flags.sql h1:1MTdhh1GuJfKd48anwJWEbRl3BVlK0a2gta0OEtvi2Q=
 20260101000020_subscriptions.sql h1:MK9740INwf92+QLwrMec/+5THrGyMOLQSJIcn6T6wO8=
+20260101000021_dashboard_users.sql h1:ZUHMJ2grdpq9JSgDMCDVgyI4idHXNc8DGdSqov6kpV8=
