@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/ed25519"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,6 +33,7 @@ func TxCommand() *cobra.Command {
 		RegisterHumanCmd(),
 		UpdateFrequencyCmd(),
 		SendCreditsCmd(),
+		BindKeyCmd(),
 		BatchSendCmd(),
 	)
 
@@ -237,9 +239,18 @@ func SendCreditsCmd() *cobra.Command {
 			from, _ := cmd.Flags().GetString("from")
 			to, _ := cmd.Flags().GetString("to")
 			amount, _ := cmd.Flags().GetString("amount")
+			keyPath, _ := cmd.Flags().GetString("key-file")
+			nonce, _ := cmd.Flags().GetUint64("nonce")
 
 			if from == "" || to == "" || amount == "" {
 				return fmt.Errorf("--from, --to, and --amount are required")
+			}
+			if keyPath == "" || nonce == 0 {
+				return fmt.Errorf("--key-file and --nonce are required: a transfer must be signed by the sender")
+			}
+			priv, err := loadSigningKey(keyPath)
+			if err != nil {
+				return err
 			}
 
 			if GlobalApp == nil {
@@ -253,7 +264,10 @@ func SendCreditsCmd() *cobra.Command {
 				return fmt.Errorf("invalid amount: %s", amount)
 			}
 
-			event, err := GlobalApp.IssuanceKeeper.SendCredits(from, to, amountInt)
+			sig := ed25519.Sign(priv, issuance.SendSigningBytes(from, to, amountInt, nonce))
+			event, err := GlobalApp.IssuanceKeeper.SendCreditsSigned(issuance.SignedSend{
+				From: from, To: to, Amount: amountInt, Nonce: nonce, Signature: sig,
+			})
 			if err != nil {
 				return fmt.Errorf("send failed: %w", err)
 			}
@@ -269,6 +283,8 @@ func SendCreditsCmd() *cobra.Command {
 	cmd.Flags().String("from", "", "Sender address")
 	cmd.Flags().String("to", "", "Recipient address")
 	cmd.Flags().String("amount", "", "Amount in ucredit")
+	cmd.Flags().String("key-file", "", "the sender's key file (see tptcreditd keys new)")
+	cmd.Flags().Uint64("nonce", 0, "one more than the sender's last accepted nonce")
 	return cmd
 }
 
@@ -280,9 +296,18 @@ func BatchSendCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			from, _ := cmd.Flags().GetString("from")
 			entriesJSON, _ := cmd.Flags().GetString("entries")
+			keyPath, _ := cmd.Flags().GetString("key-file")
+			nonce, _ := cmd.Flags().GetUint64("nonce")
 
 			if from == "" || entriesJSON == "" {
 				return fmt.Errorf("--from and --entries are required")
+			}
+			if keyPath == "" || nonce == 0 {
+				return fmt.Errorf("--key-file and --nonce are required: a transfer must be signed by the sender")
+			}
+			priv, err := loadSigningKey(keyPath)
+			if err != nil {
+				return err
 			}
 
 			if GlobalApp == nil {
@@ -296,7 +321,10 @@ func BatchSendCmd() *cobra.Command {
 				return fmt.Errorf("invalid entries JSON: %w", err)
 			}
 
-			event, err := GlobalApp.IssuanceKeeper.BatchSend(from, entries)
+			sig := ed25519.Sign(priv, issuance.BatchSigningBytes(from, entries, nonce))
+			event, err := GlobalApp.IssuanceKeeper.BatchSendSigned(issuance.SignedBatch{
+				From: from, Entries: entries, Nonce: nonce, Signature: sig,
+			})
 			if err != nil {
 				return fmt.Errorf("batch send failed: %w", err)
 			}
@@ -311,6 +339,8 @@ func BatchSendCmd() *cobra.Command {
 
 	cmd.Flags().String("from", "", "Sender address")
 	cmd.Flags().String("entries", "", "JSON array of {to,amount} objects")
+	cmd.Flags().String("key-file", "", "the sender's key file (see tptcreditd keys new)")
+	cmd.Flags().Uint64("nonce", 0, "one more than the sender's last accepted nonce")
 	return cmd
 }
 

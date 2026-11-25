@@ -62,6 +62,7 @@ Denomination: ucredit (1 credit = 1,000,000 ucredit)
 		StartCmd(),
 		app.TxCommand(),
 		app.QueryCommand(),
+		app.KeysCommand(),
 		app.VersionCommand(),
 	)
 

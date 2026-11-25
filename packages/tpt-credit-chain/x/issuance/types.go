@@ -123,6 +123,13 @@ type HumanAccount struct {
 	// Address is the Cosmos bech32 account address.
 	Address string `json:"address"`
 
+	// PublicKey is the Ed25519 key that authorizes this account's signed transfers. It is bound
+	// once (see BindKey) and empty until then.
+	PublicKey []byte `json:"public_key,omitempty"`
+
+	// Nonce is the last nonce accepted from a signed transfer by this account.
+	Nonce uint64 `json:"nonce"`
+
 	// IdentityUUID is the SHA-256 hash of the KYC provider's unique person ID.
 	// It is the uniqueness constraint — duplicate UUIDs are rejected at consensus.
 	IdentityUUID string `json:"identity_uuid"`
