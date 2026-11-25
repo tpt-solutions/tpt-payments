@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import * as jose from 'jose'
-import * as OTPAuth from 'otpauth'
 import {
   ConfigError,
   SESSION_TTL_SECONDS,
@@ -11,14 +10,8 @@ import {
   consumePreAuth,
   jwtKey,
   newTokenId,
-  prototypeUser,
 } from '../../../../../lib/auth'
-import {
-  accountKey,
-  clearFailedLogins,
-  lockedUntil,
-  recordFailedLogin,
-} from '../../../../../lib/lockout'
+import { verifyTotp } from '../../../../../lib/dashboardCore'
 
 const VERIFY_WINDOW_MS = 15 * 60 * 1000
 const VERIFY_MAX_ATTEMPTS = 10
@@ -28,10 +21,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 })
   }
 
-  let user
   let key: Uint8Array
   try {
-    user = prototypeUser()
     key = jwtKey()
   } catch (error) {
     if (error instanceof ConfigError) {
@@ -40,84 +31,86 @@ export async function POST(request: Request) {
     throw error
   }
 
+  let token: unknown
   try {
-    const { token } = await request.json()
-    if (typeof token !== 'string' || !/^\d{6}$/.test(token)) {
-      return NextResponse.json({ error: 'Invalid 2FA token' }, { status: 401 })
-    }
-
-    // A per-account counter for the second factor. A correct password does not reset it: the
-    // password check can be repeated for every guess, so the code guesses are counted on their own.
-    const factorKey = `2fa:${accountKey(user.email)}`
-    if (lockedUntil(factorKey) !== null) {
-      return NextResponse.json({ error: 'Account temporarily locked. Try again later.' }, { status: 429 })
-    }
-
-    const cookieStore = await cookies()
-    const preAuthToken = cookieStore.get('pre_auth')?.value
-    if (!preAuthToken) {
-      return NextResponse.json({ error: 'No pre-authentication session found' }, { status: 400 })
-    }
-
-    const { payload } = await jose.jwtVerify(preAuthToken, key)
-    if (payload.type !== 'pre_auth' || !payload.jti || payload.exp === undefined) {
-      return NextResponse.json({ error: 'Invalid token type' }, { status: 400 })
-    }
-
-    // Single use: the token is spent on the first attempt, right or wrong.
-    if (!consumePreAuth(payload.jti, payload.exp * 1000)) {
-      cookieStore.delete('pre_auth')
-      return NextResponse.json({ error: 'Pre-authentication session already used' }, { status: 401 })
-    }
-
-    const totp = new OTPAuth.TOTP({
-      issuer: 'TPT Pay',
-      label: user.email,
-      algorithm: 'SHA1',
-      digits: 6,
-      period: 30,
-      secret: OTPAuth.Secret.fromBase32(user.totpSecret),
-    })
-
-    const delta = totp.validate({ token, window: 1 })
-    cookieStore.delete('pre_auth')
-    if (delta === null) {
-      recordFailedLogin(factorKey)
-      return NextResponse.json({ error: 'Invalid 2FA token' }, { status: 401 })
-    }
-    clearFailedLogins(factorKey)
-
-    const sessionToken = await new jose.SignJWT({
-      email: user.email,
-      merchantId: user.merchantId,
-      name: user.name,
-      twoFactorEnabled: true,
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setSubject(user.id)
-      .setJti(newTokenId())
-      .setIssuedAt()
-      .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
-      .sign(key)
-
-    cookieStore.set('session', sessionToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: SESSION_TTL_SECONDS,
-      path: '/',
-    })
-
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        merchantId: user.merchantId,
-        name: user.name,
-        twoFactorEnabled: true,
-      },
-    })
+    token = (await request.json()).token
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
+  if (typeof token !== 'string' || !/^\d{6}$/.test(token)) {
+    return NextResponse.json({ error: 'Invalid 2FA token' }, { status: 401 })
+  }
+
+  const cookieStore = await cookies()
+  const preAuthToken = cookieStore.get('pre_auth')?.value
+  if (!preAuthToken) {
+    return NextResponse.json({ error: 'No pre-authentication session found' }, { status: 400 })
+  }
+
+  let payload: jose.JWTPayload
+  try {
+    ;({ payload } = await jose.jwtVerify(preAuthToken, key))
+  } catch {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+  }
+  if (payload.type !== 'pre_auth' || !payload.jti || payload.exp === undefined || !payload.sub) {
+    return NextResponse.json({ error: 'Invalid token type' }, { status: 400 })
+  }
+
+  // Single use: the token is spent on the first attempt, right or wrong.
+  if (!consumePreAuth(payload.jti, payload.exp * 1000)) {
+    cookieStore.delete('pre_auth')
+    return NextResponse.json({ error: 'Pre-authentication session already used' }, { status: 401 })
+  }
+  cookieStore.delete('pre_auth')
+
+  // The core counts wrong codes per user, shared by every server instance, and refuses a code that
+  // was already used.
+  let result
+  try {
+    result = await verifyTotp(payload.sub, token)
+  } catch (error) {
+    if (error instanceof ConfigError) {
+      return NextResponse.json({ error: 'Authentication is not configured' }, { status: 503 })
+    }
+    console.error('two-factor check could not reach the core:', error)
+    return NextResponse.json({ error: 'Sign-in is unavailable. Try again shortly.' }, { status: 503 })
+  }
+  if (result.kind === 'locked') {
+    return NextResponse.json({ error: 'Account temporarily locked. Try again later.' }, { status: 429 })
+  }
+  if (result.kind !== 'ok') {
+    return NextResponse.json({ error: 'Invalid 2FA token' }, { status: 401 })
+  }
+
+  const sessionToken = await new jose.SignJWT({
+    email: payload.email,
+    merchantId: payload.merchantId,
+    name: payload.name,
+    twoFactorEnabled: true,
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject(payload.sub)
+    .setJti(newTokenId())
+    .setIssuedAt()
+    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .sign(key)
+
+  cookieStore.set('session', sessionToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: SESSION_TTL_SECONDS,
+    path: '/',
+  })
+
+  return NextResponse.json({
+    user: {
+      id: payload.sub,
+      email: payload.email,
+      merchantId: payload.merchantId,
+      name: payload.name,
+      twoFactorEnabled: true,
+    },
+  })
 }

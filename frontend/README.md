@@ -6,17 +6,22 @@
 
 Next.js app. Setup for the whole platform is in the [root README](../README.md).
 
-## Authentication (prototype)
+## Authentication
 
-Sign-in uses one prototype account whose credentials come from the environment. Nothing is
-committed to source, and every auth route returns `503` until the settings are present.
+Dashboard users live in the core's database (`dashboard_users`), not in this app. The core owns the
+password hashes (PBKDF2-SHA256), the TOTP secrets (encrypted), and the lockout. This server calls the
+core's internal routes with a service token. The browser never calls them. Every auth route returns
+`503` until the settings are present.
 
-1. Copy `.env.example` to `.env.local`.
-2. Set `JWT_SECRET` to at least 32 random characters.
-3. Set `DEMO_USER_EMAIL`, `DEMO_USER_TOTP_SECRET`, and a password hash:
+1. Copy `.env.example` to `.env.local` and set `JWT_SECRET` (at least 32 characters).
+2. Start the core with the same `DASHBOARD_SERVICE_TOKEN` as this app, and a `DASHBOARD_TOTP_KEY`
+   (`openssl rand -base64 32`). Set `TPT_CORE_URL` to the core's address.
+3. Create a user, then enroll a second factor. The password is read from standard input:
 
    ```bash
-   node -e "const c=require('crypto');const s=c.randomBytes(16);c.scrypt(process.argv[1],s,32,(e,k)=>console.log('scrypt\$'+s.toString('hex')+'\$'+k.toString('hex')))" 'your-password'
+   echo 'a long passphrase' | dashuser create --merchant-email you@example.com \
+     --email owner@example.com --name "Owner"
+   dashuser enroll-totp --email owner@example.com   # prints an otpauth:// URI once
    ```
 
 Transactions are read from the payments API through server routes under `/api/tpt/`. Set
@@ -35,7 +40,11 @@ What the app enforces:
 - Login and 2FA are rate-limited per client (10 attempts per 15 minutes). The limit is in-process,
   so a multi-instance deployment needs a shared store.
 - A pre-auth token is single-use: each one allows one TOTP attempt.
-- Passwords use scrypt with a per-password random salt, compared in constant time.
+- Passwords are PBKDF2-SHA256 (600,000 iterations) in the core, with a per-password random salt.
+- Five wrong passwords, or five wrong codes, lock that factor for 15 minutes. The count is shared by every
+  server instance, because it is stored in the core's database.
+- A second-factor code can be used once. A replayed code is refused.
 
-Known gaps before real use: no user database, no account lockout, and the rate limiter trusts
-the first `X-Forwarded-For` hop, so run it behind a proxy that sets that header.
+Known gaps before real use: the per-client rate limit is in-process, and it trusts the first
+`X-Forwarded-For` hop, so run it behind a proxy that sets that header. Users are created with the
+`dashuser` command only; there is no sign-up or password-reset flow.
