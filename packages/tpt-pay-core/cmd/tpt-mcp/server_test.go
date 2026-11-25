@@ -33,9 +33,9 @@ func exchange(t *testing.T, cfg Config, lines ...string) []map[string]any {
 
 func toolText(t *testing.T, resp map[string]any) (text string, isError bool) {
 	t.Helper()
-	result := resp["result"].(map[string]any)
-	content := result["content"].([]any)
-	return content[0].(map[string]any)["text"].(string), result["isError"].(bool)
+	result := typed[map[string]any](resp["result"])
+	content := typed[[]any](result["content"])
+	return typed[string](typed[map[string]any](content[0])["text"]), typed[bool](result["isError"])
 }
 
 func TestInitializeAndNotifications(t *testing.T) {
@@ -45,17 +45,17 @@ func TestInitializeAndNotifications(t *testing.T) {
 		`{"jsonrpc":"2.0","id":2,"method":"ping"}`,
 	)
 	require.Len(t, resps, 2, "a notification must not produce a response")
-	result := resps[0]["result"].(map[string]any)
+	result := typed[map[string]any](resps[0]["result"])
 	assert.Equal(t, protocolVersion, result["protocolVersion"])
-	assert.Equal(t, "tpt-mcp", result["serverInfo"].(map[string]any)["name"])
+	assert.Equal(t, "tpt-mcp", typed[map[string]any](result["serverInfo"])["name"])
 }
 
 func TestToolsList_ReadDocsOnlyWhenConfigured(t *testing.T) {
 	names := func(cfg Config) []string {
 		resp := exchange(t, cfg, `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)[0]
 		var out []string
-		for _, tool := range resp["result"].(map[string]any)["tools"].([]any) {
-			out = append(out, tool.(map[string]any)["name"].(string))
+		for _, tool := range typed[[]any](typed[map[string]any](resp["result"])["tools"]) {
+			out = append(out, typed[string](typed[map[string]any](tool)["name"]))
 		}
 		return out
 	}
@@ -157,7 +157,7 @@ func TestProtocolErrors(t *testing.T) {
 		`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{}}`,
 	)
 	require.Len(t, resps, 3)
-	assert.Equal(t, float64(-32700), resps[0]["error"].(map[string]any)["code"])
-	assert.Equal(t, float64(-32601), resps[1]["error"].(map[string]any)["code"])
-	assert.Equal(t, float64(-32602), resps[2]["error"].(map[string]any)["code"])
+	assert.Equal(t, float64(-32700), typed[map[string]any](resps[0]["error"])["code"])
+	assert.Equal(t, float64(-32601), typed[map[string]any](resps[1]["error"])["code"])
+	assert.Equal(t, float64(-32602), typed[map[string]any](resps[2]["error"])["code"])
 }

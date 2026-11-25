@@ -51,7 +51,7 @@ func TestSubscriptions_LifecycleThroughTheApi(t *testing.T) {
 	assert.Equal(t, "subscription", created["object"])
 	assert.Equal(t, "active", created["status"], "the first charge succeeded")
 	assert.EqualValues(t, 1500, created["amount"])
-	assert.Equal(t, "pro", created["metadata"].(map[string]any)["plan"])
+	assert.Equal(t, "pro", typed[map[string]any](created["metadata"])["plan"])
 
 	rec = s.do(http.MethodGet, "/v1/subscriptions/"+id, key, "")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())

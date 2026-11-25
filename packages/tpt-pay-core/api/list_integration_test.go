@@ -31,7 +31,7 @@ func decodePage(t *testing.T, body string) listPage {
 func ids(page listPage) []string {
 	out := make([]string, 0, len(page.Data))
 	for _, d := range page.Data {
-		out = append(out, d["id"].(string))
+		out = append(out, typed[string](d["id"]))
 	}
 	return out
 }
@@ -63,7 +63,7 @@ func TestList_WebhookEndpointsPagesAndNeverReturnsSecrets(t *testing.T) {
 	}
 	assert.NotContains(t, first.Body.String(), "\"secret\"")
 
-	second := s.do(http.MethodGet, "/v1/webhook_endpoints?limit=2&starting_after="+page1.Data[1]["id"].(string), secret, "")
+	second := s.do(http.MethodGet, "/v1/webhook_endpoints?limit=2&starting_after="+typed[string](page1.Data[1]["id"]), secret, "")
 	require.Equal(t, http.StatusOK, second.Code, second.Body.String())
 	page2 := decodePage(t, second.Body.String())
 	assert.Len(t, page2.Data, 1)
@@ -138,8 +138,8 @@ func TestList_APIKeysShowRevocationAndRefuseForeignCursors(t *testing.T) {
 	listed := decodePage(t, s.do(http.MethodGet, "/v1/api_keys", secret, "").Body.String())
 	var otherID string
 	for _, d := range listed.Data {
-		if d["prefix"] != "" && strings.HasPrefix(other, d["prefix"].(string)) {
-			otherID = d["id"].(string)
+		if d["prefix"] != "" && strings.HasPrefix(other, typed[string](d["prefix"])) {
+			otherID = typed[string](d["id"])
 		}
 	}
 	require.NotEmpty(t, otherID, "the second key is in the list")
@@ -148,7 +148,7 @@ func TestList_APIKeysShowRevocationAndRefuseForeignCursors(t *testing.T) {
 	after := decodePage(t, s.do(http.MethodGet, "/v1/api_keys", secret, "").Body.String())
 	statuses := map[string]string{}
 	for _, d := range after.Data {
-		statuses[d["id"].(string)] = d["status"].(string)
+		statuses[typed[string](d["id"])] = typed[string](d["status"])
 	}
 	assert.Equal(t, "revoked", statuses[otherID], "a revoked key stays listed, marked revoked")
 

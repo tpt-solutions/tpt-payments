@@ -94,7 +94,7 @@ func TestAPIKeys_CreateListAndRevokeThroughTheApi(t *testing.T) {
 
 	rec = s.do(http.MethodGet, "/v1/api_keys", key, "")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	for _, k := range decode(t, rec.Body.Bytes())["data"].([]any) {
+	for _, k := range typed[[]any](decode(t, rec.Body.Bytes())["data"]) {
 		assert.NotContains(t, k, "secret", "listing never returns a secret")
 		assert.NotContains(t, k, "key_digest", "listing never returns the digest")
 	}
@@ -118,16 +118,16 @@ func TestWebhookDeliveries_ListAndReplayThroughTheApi(t *testing.T) {
 	rec = s.do(http.MethodGet, "/v1/webhook_deliveries?limit=10", key, "")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	page := decode(t, rec.Body.Bytes())
-	data := page["data"].([]any)
+	data := typed[[]any](page["data"])
 	require.NotEmpty(t, data)
-	first := data[0].(map[string]any)
+	first := typed[map[string]any](data[0])
 	assert.NotContains(t, first, "payload", "payloads are only returned with include=payload")
 
 	rec = s.do(http.MethodGet, "/v1/webhook_deliveries?include=payload&limit=10", key, "")
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	withPayload := decode(t, rec.Body.Bytes())["data"].([]any)[0].(map[string]any)
+	withPayload := typed[map[string]any](typed[[]any](decode(t, rec.Body.Bytes())["data"])[0])
 	assert.Contains(t, withPayload, "payload")
 
-	rec = s.do(http.MethodPost, "/v1/webhook_deliveries/"+first["id"].(string)+"/replay", key, `{}`)
+	rec = s.do(http.MethodPost, "/v1/webhook_deliveries/"+typed[string](first["id"])+"/replay", key, `{}`)
 	assert.Equal(t, http.StatusAccepted, rec.Code, rec.Body.String())
 }
