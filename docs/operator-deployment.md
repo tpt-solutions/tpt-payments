@@ -140,11 +140,20 @@ A database created by the docker compose stack (Atlas migrations) is not migrate
 It refuses such a database, because its tables already exist. Keep migrating that database with
 Atlas, or start from an empty database.
 
-### Default Admin User
+### Dashboard Users
 
-On first installation, an admin user is created:
-- **Email:** admin@tpt-payments.local
-- **Password:** View in pod logs on first run
+No default user is created. Dashboard users are made with the `dashuser` command against the core's
+database, and the password is read from standard input:
+
+```bash
+echo 'a long passphrase' | dashuser create --merchant-email you@example.com \
+  --email owner@example.com --name "Owner"
+dashuser enroll-totp --email owner@example.com   # prints the authenticator URI once
+```
+
+The core needs `DASHBOARD_SERVICE_TOKEN` (at least 32 characters, shared with the dashboard server) and
+`DASHBOARD_TOTP_KEY` (`openssl rand -base64 32`, which encrypts second-factor secrets). Without the
+service token the internal sign-in routes do not exist.
 
 ### Verify Installation
 
