@@ -333,7 +333,7 @@ func (s *server) post(ctx context.Context, path string, body any) ([]byte, error
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	out, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("API returned %d: %s", resp.StatusCode, strings.TrimSpace(string(out)))

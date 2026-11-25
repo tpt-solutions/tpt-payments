@@ -113,7 +113,7 @@ func (t *Transit) post(ctx context.Context, op string, body any, out any) error 
 		// The URL has no secret in it; the transport error does not include headers.
 		return fmt.Errorf("vault: %s request failed: %w", op, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return fmt.Errorf("vault: read %s response: %w", op, err)

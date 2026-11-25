@@ -99,7 +99,7 @@ func ensureEnv(src, dst string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read %s: %w", src, err)
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return false, err
@@ -109,7 +109,7 @@ func ensureEnv(src, dst string) (bool, error) {
 		return false, fmt.Errorf("create %s: %w", dst, err)
 	}
 	if _, err := io.Copy(out, in); err != nil {
-		out.Close()
+		_ = out.Close()
 		return false, fmt.Errorf("copy %s: %w", dst, err)
 	}
 	return true, out.Close()
@@ -122,7 +122,7 @@ func waitHealthy(url string, timeout, interval time.Duration) error {
 	for {
 		resp, err := client.Get(url)
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				return nil
 			}

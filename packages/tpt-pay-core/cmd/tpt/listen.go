@@ -68,7 +68,7 @@ func cmdListen(ctx context.Context, args []string, stdout io.Writer) error {
 		interval:  *interval,
 		client:    &http.Client{Timeout: 15 * time.Second},
 	}
-	fmt.Fprintf(stdout, "listening for events; forwarding to %s (Ctrl-C to stop)\n", *forward)
+	_, _ = fmt.Fprintf(stdout, "listening for events; forwarding to %s (Ctrl-C to stop)\n", *forward)
 	return l.run(ctx, stdout)
 }
 
@@ -98,7 +98,7 @@ func (l *listener) run(ctx context.Context, stdout io.Writer) error {
 		case ctx.Err() != nil:
 			return nil
 		case err != nil:
-			fmt.Fprintf(stdout, "could not read events (retrying): %v\n", err)
+			_, _ = fmt.Fprintf(stdout, "could not read events (retrying): %v\n", err)
 		default:
 			if len(seen) > listenSeenLimit {
 				seen = make(map[string]bool)
@@ -150,7 +150,7 @@ func (l *listener) fetch(ctx context.Context) ([]listenEvent, error) {
 func (l *listener) forward(ctx context.Context, ev listenEvent, stdout io.Writer) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, l.forwardTo, bytes.NewReader(ev.Payload))
 	if err != nil {
-		fmt.Fprintf(stdout, "cannot forward %s: %v\n", ev.EventType, err)
+		_, _ = fmt.Fprintf(stdout, "cannot forward %s: %v\n", ev.EventType, err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -160,10 +160,10 @@ func (l *listener) forward(ctx context.Context, ev listenEvent, stdout io.Writer
 
 	resp, err := l.client.Do(req)
 	if err != nil {
-		fmt.Fprintf(stdout, "forward %s (%s) failed: %v\n", ev.EventType, ev.EventID, err)
+		_, _ = fmt.Fprintf(stdout, "forward %s (%s) failed: %v\n", ev.EventType, ev.EventID, err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
-	fmt.Fprintf(stdout, "forwarded %s (%s): HTTP %d\n", ev.EventType, ev.EventID, resp.StatusCode)
+	_, _ = fmt.Fprintf(stdout, "forwarded %s (%s): HTTP %d\n", ev.EventType, ev.EventID, resp.StatusCode)
 }

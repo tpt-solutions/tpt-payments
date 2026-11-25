@@ -86,7 +86,7 @@ func run() error {
 		if err != nil {
 			return fmt.Errorf("open output: %w", err)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		w = f
 	}
 	enc := json.NewEncoder(w)

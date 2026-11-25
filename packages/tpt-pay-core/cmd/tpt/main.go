@@ -65,7 +65,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return cmdListen(ctx, args[1:], stdout)
 	case "events":
 		for _, e := range eventTypes {
-			fmt.Fprintln(stdout, e)
+			_, _ = fmt.Fprintln(stdout, e)
 		}
 		return nil
 	case "help", "-h", "--help":
@@ -78,7 +78,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprintln(w, `tpt: command-line client for TPT Pay
+	_, _ = fmt.Fprintln(w, `tpt: command-line client for TPT Pay
 
   tpt login --api-key KEY [--base-url URL]
   tpt keys create [--type secret|publishable] [--mode test|live] [--name NAME]
@@ -154,7 +154,7 @@ func cmdLogin(args []string, stdout io.Writer) error {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("save profile: %w", err)
 	}
-	fmt.Fprintf(stdout, "saved credentials to %s\n", path)
+	_, _ = fmt.Fprintf(stdout, "saved credentials to %s\n", path)
 	return nil
 }
 
@@ -198,7 +198,7 @@ func cmdKeysCreate(ctx context.Context, args []string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(stdout, string(resp))
+	_, _ = fmt.Fprintln(stdout, string(resp))
 	return nil
 }
 
@@ -228,7 +228,7 @@ func do(ctx context.Context, p profile, method, path string, body any, headers m
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, err
@@ -285,7 +285,7 @@ func eventObject(eventType string) map[string]any {
 
 func cmdTrigger(ctx context.Context, args []string, stdout io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: tpt trigger EVENT --forward-to URL --secret whsec_...")
+		return errors.New("usage: tpt trigger EVENT --forward-to URL --secret whsec_<secret>")
 	}
 	eventType := args[0]
 	fs := flag.NewFlagSet("trigger", flag.ContinueOnError)
@@ -327,16 +327,16 @@ func cmdTrigger(ctx context.Context, args []string, stdout io.Writer) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "tpt-cli/1")
-	req.Header.Set("TPT-Event-Id", event["id"].(string))
+	req.Header.Set("TPT-Event-Id", fmt.Sprint(event["id"]))
 	req.Header.Set(webhook.SignatureHeader, header)
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("delivery failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
-	fmt.Fprintf(stdout, "sent %s (%s) to %s: HTTP %d\n", eventType, event["id"], *forward, resp.StatusCode)
+	_, _ = fmt.Fprintf(stdout, "sent %s (%s) to %s: HTTP %d\n", eventType, event["id"], *forward, resp.StatusCode)
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return fmt.Errorf("the endpoint answered HTTP %d", resp.StatusCode)
 	}
@@ -394,11 +394,11 @@ func cmdLogs(ctx context.Context, args []string, stdout io.Writer) error {
 		if d.LastStatus != nil {
 			code = fmt.Sprint(*d.LastStatus)
 		}
-		fmt.Fprintf(stdout, "%s  %-30s  %-9s  attempts=%d  http=%s  %s\n",
+		_, _ = fmt.Fprintf(stdout, "%s  %-30s  %-9s  attempts=%d  http=%s  %s\n",
 			d.ID, d.EventType, d.Status, d.Attempts, code, d.LastError)
 	}
 	if page.HasMore {
-		fmt.Fprintln(stdout, "(more deliveries exist; raise --limit to see them)")
+		_, _ = fmt.Fprintln(stdout, "(more deliveries exist; raise --limit to see them)")
 	}
 	return nil
 }
@@ -418,6 +418,6 @@ func cmdReplay(ctx context.Context, args []string, stdout io.Writer) error {
 	if _, err := do(ctx, p, http.MethodPost, "/webhook_deliveries/"+url.PathEscape(args[0])+"/replay", map[string]string{}, nil); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "queued delivery %s for another attempt\n", args[0])
+	_, _ = fmt.Fprintf(stdout, "queued delivery %s for another attempt\n", args[0])
 	return nil
 }

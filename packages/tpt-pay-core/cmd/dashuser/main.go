@@ -96,8 +96,8 @@ func create(ctx context.Context, pool *pgxpool.Pool, args []string, stdin io.Rea
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "created %s for %s\n", user.ID, user.Email)
-	fmt.Fprintln(stdout, "enroll a second factor with: dashuser enroll-totp --email "+user.Email)
+	_, _ = fmt.Fprintf(stdout, "created %s for %s\n", user.ID, user.Email)
+	_, _ = fmt.Fprintln(stdout, "enroll a second factor with: dashuser enroll-totp --email "+user.Email)
 	return nil
 }
 
@@ -126,9 +126,9 @@ func enroll(ctx context.Context, pool *pgxpool.Pool, args []string, stdout io.Wr
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(stdout, "Add this to an authenticator app now. It is not shown again:")
-	fmt.Fprintln(stdout, uri)
-	fmt.Fprintln(stdout, "Enrolling again replaces the secret, so the old authenticator stops working.")
+	_, _ = fmt.Fprintln(stdout, "Add this to an authenticator app now. It is not shown again:")
+	_, _ = fmt.Fprintln(stdout, uri)
+	_, _ = fmt.Fprintln(stdout, "Enrolling again replaces the secret, so the old authenticator stops working.")
 	return nil
 }
 

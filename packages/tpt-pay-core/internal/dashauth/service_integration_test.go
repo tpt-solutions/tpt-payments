@@ -115,7 +115,7 @@ func TestService_AuthenticateAndLock(t *testing.T) {
 	assert.ErrorIs(t, err, dashauth.ErrLocked, "a locked account is refused before the password is checked")
 
 	// After the lock ends, the correct password works again.
-	e.clk.Set(e.clk.Now().Add(16 * time.Minute))
+	_, _ = e.clk.Set(e.clk.Now().Add(16 * time.Minute))
 	_, err = e.svc.Authenticate(ctx, "owner@example.com", password)
 	require.NoError(t, err)
 }
@@ -168,7 +168,7 @@ func TestService_WrongCodesLockTheSecondFactor(t *testing.T) {
 	// Even the right code is refused while the factor is locked.
 	assert.ErrorIs(t, e.svc.VerifyTOTP(ctx, u.ID, codeNow(secret, e.clk.Now())), dashauth.ErrLocked)
 
-	e.clk.Set(e.clk.Now().Add(16 * time.Minute))
+	_, _ = e.clk.Set(e.clk.Now().Add(16 * time.Minute))
 	require.NoError(t, e.svc.VerifyTOTP(ctx, u.ID, codeNow(secret, e.clk.Now())))
 }
 
