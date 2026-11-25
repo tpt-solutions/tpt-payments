@@ -1,0 +1,17 @@
+{
+    "name": "tpt-solutions/tpt-pay",
+    "description": "PHP client for the TPT Pay API",
+    "license": "MIT OR Apache-2.0",
+    "type": "library",
+    "require": {
+        "php": ">=8.1",
+        "ext-curl": "*",
+        "ext-json": "*",
+        "ext-hash": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "TPTPay\\": "src/"
+        }
+    }
+}
