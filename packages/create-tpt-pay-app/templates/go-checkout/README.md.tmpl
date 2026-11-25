@@ -1,0 +1,40 @@
+# {{name}}
+
+A TPT Pay checkout endpoint and a verified webhook receiver in Go, created with
+`create-tpt-pay-app --template go-checkout`. It uses only the standard library.
+
+## Run it
+
+```bash
+cp .env.example .env     # then fill in TPT_SECRET_KEY and TPT_WEBHOOK_SECRET
+set -a; . ./.env; set +a
+go run .
+```
+
+Create a payment:
+
+```bash
+curl -s -X POST http://localhost:4000/checkout \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: order-1001" \
+  -d '{"amount":1000,"currency":"usd"}'
+```
+
+## Receive webhooks locally
+
+Create a webhook endpoint that points at `/webhooks` (through a tunnel if the service runs on your
+machine), then send a signed test event:
+
+```bash
+tpt trigger payment_intent.succeeded --forward-to http://localhost:4000/webhooks --secret "$TPT_WEBHOOK_SECRET"
+```
+
+## Files
+
+- `main.go`: the checkout endpoint and the webhook route. Handle events in `receive`.
+- `verify.go`: the signature check, which runs over the exact bytes received.
+- `verify_test.go`: tests for the signature check, including tampering and stale timestamps.
+- `go.mod`: the module, named after the project.
+
+Deliveries are verified before they are trusted. A failed check returns 400; a handler error
+should return 500, so TPT Pay retries the event.

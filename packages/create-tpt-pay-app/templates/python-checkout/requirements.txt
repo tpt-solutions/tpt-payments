@@ -1,0 +1,4 @@
+# The TPT Pay Python client and the HTTP server. tpt-payments is not published yet: install it
+# from the repository (pip install -e ../../packages/python) until it is.
+aiohttp>=3.9
+tpt-payments==0.1.0

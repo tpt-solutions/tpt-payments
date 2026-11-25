@@ -1,0 +1,40 @@
+# {{name}}
+
+A TPT Pay checkout endpoint and a verified webhook receiver in Python (aiohttp and the
+`tpt-payments` client), created with `create-tpt-pay-app`.
+
+## Run it
+
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env     # then fill in TPT_SECRET_KEY and TPT_WEBHOOK_SECRET
+set -a; . ./.env; set +a
+python server.py
+```
+
+Create a payment:
+
+```bash
+curl -s -X POST http://localhost:3000/api/checkout \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 2000, "currency": "usd", "order_id": "order_1001"}'
+```
+
+## Receive webhooks locally
+
+Create a webhook endpoint that points at `/webhook` (through a tunnel if the service runs on your
+machine), then send a signed test event:
+
+```bash
+tpt trigger payment_intent.succeeded --forward-to http://localhost:3000/webhook --secret "$TPT_WEBHOOK_SECRET"
+```
+
+## Files
+
+- `server.py`: the checkout endpoint and the webhook handler. Handle events in `webhook`.
+- `requirements.txt`: the packages the server needs.
+- `.env.example`: the settings the server reads.
+
+Deliveries are verified on the raw body before they are parsed. A failed check returns 400; a
+handler error returns 500, so TPT Pay retries the event.

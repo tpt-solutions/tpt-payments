@@ -1,0 +1,35 @@
+# {{name}}
+
+A TPT Pay checkout with Next.js (App Router), created with
+`create-tpt-pay-app --template nextjs-checkout`.
+
+- `app/page.js` is a form that asks the server for a payment intent. Card details are not collected
+  here; a real page would use TPT Pay's hosted or embedded payment form.
+- `app/api/checkout/route.js` creates the payment intent with the secret key, which stays on the server.
+- `app/api/webhook/route.js` receives signed deliveries. The signature is checked over the raw body
+  before anything is parsed, and a handler failure returns 500 so the event is sent again.
+
+The logic lives in `lib/` and is tested without starting Next.js.
+
+## Run it
+
+```bash
+npm install            # @tpt/pay is not published yet; see the note below
+cp .env.example .env.local   # then fill in TPT_SECRET_KEY and TPT_WEBHOOK_SECRET
+npm run dev
+```
+
+Open http://localhost:3000. Create a webhook endpoint that points at `/api/webhook` (through a
+tunnel if the app runs on your machine) to receive events.
+
+`@tpt/pay` is not published, so `npm install` cannot fetch it yet. Until it is, point the dependency
+at a local checkout of `packages/tpt-pay` in the TPT Pay repository, for example
+`"@tpt/pay": "file:../path/to/tpt-payments/packages/tpt-pay"`.
+
+The build uses webpack (`npm run build`). Turbopack cannot follow a `file:` link on Windows.
+
+## Test
+
+```bash
+npm test
+```

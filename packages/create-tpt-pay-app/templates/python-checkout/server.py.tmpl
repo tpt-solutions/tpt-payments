@@ -1,0 +1,99 @@
+"""{{name}}: a checkout endpoint and a verified webhook receiver for TPT Pay.
+
+  POST /api/checkout   {"amount": 2000, "currency": "usd"}  -> creates a payment intent
+  POST /webhook        signed deliveries from TPT Pay        -> verified, then handled
+
+Built on aiohttp and the tpt-payments client, so one event loop serves every request.
+"""
+
+import logging
+import os
+import sys
+
+from aiohttp import web
+
+from tpt_payments import (
+    SIGNATURE_HEADER,
+    SignatureVerificationError,
+    TPTError,
+    TPTPay,
+    construct_event,
+)
+
+MAX_WEBHOOK_BYTES = 1024 * 1024
+TPT = "tpt"  # application key for the shared client
+
+
+async def checkout(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+    except ValueError:
+        return web.json_response({"error": "body must be JSON"}, status=400)
+
+    amount = body.get("amount") if isinstance(body, dict) else None
+    if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
+        return web.json_response(
+            {"error": "amount must be a positive integer in minor units"}, status=400
+        )
+
+    try:
+        intent = await request.app[TPT].payment_intents.create(
+            amount=amount,
+            currency=str(body.get("currency") or "usd").lower(),
+            capture_method="automatic",
+            # Your order reference, so the webhook can be matched back to the order.
+            metadata={"order_id": str(body.get("order_id", ""))},
+        )
+    except TPTError as err:
+        request.app["log"].error("create payment intent failed: %s", err)
+        return web.json_response({"error": "payment could not be started"}, status=502)
+    return web.json_response({"id": intent["id"], "status": intent["status"]})
+
+
+async def webhook(request: web.Request) -> web.Response:
+    raw = await request.read()
+    if len(raw) > MAX_WEBHOOK_BYTES:
+        return web.json_response({"error": "body too large"}, status=413)
+    try:
+        event = construct_event(
+            raw, request.headers.get(SIGNATURE_HEADER, ""), request.app["webhook_secret"]
+        )
+    except SignatureVerificationError:
+        # No reason in the body: the sender learns nothing about why the check failed.
+        return web.json_response({"error": "signature check failed"}, status=400)
+    try:
+        # Handle the event here: mark the order paid on payment_intent.succeeded, and so on.
+        request.app["log"].info("event %s %s", event.get("type"), event.get("id"))
+    except Exception:  # noqa: BLE001 - any handler failure must return 500 so TPT Pay retries
+        request.app["log"].exception("webhook handler failed")
+        return web.json_response({"error": "handler failed"}, status=500)
+    return web.json_response({"received": True})
+
+
+async def on_startup(app: web.Application) -> None:
+    app[TPT] = TPTPay(
+        os.environ["TPT_SECRET_KEY"], api_base=os.environ.get("TPT_API_BASE") or None
+    )
+
+
+async def on_cleanup(app: web.Application) -> None:
+    await app[TPT].close()
+
+
+def create_app() -> web.Application:
+    for name in ("TPT_SECRET_KEY", "TPT_WEBHOOK_SECRET"):
+        if not os.environ.get(name):
+            sys.exit(f"set {name} (see .env.example)")
+    app = web.Application()
+    app["webhook_secret"] = os.environ["TPT_WEBHOOK_SECRET"]
+    logging.basicConfig(level=logging.INFO)
+    app["log"] = logging.getLogger("{{name}}")
+    app.router.add_post("/api/checkout", checkout)
+    app.router.add_post("/webhook", webhook)
+    app.on_startup.append(on_startup)
+    app.on_cleanup.append(on_cleanup)
+    return app
+
+
+if __name__ == "__main__":
+    web.run_app(create_app(), port=int(os.environ.get("PORT", "3000")))
