@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -80,41 +79,4 @@ func loadSigningKey(path string) (ed25519.PrivateKey, error) {
 		return nil, errors.New("the key file must hold one 32-byte hex seed")
 	}
 	return ed25519.NewKeyFromSeed(seed), nil
-}
-
-// BindKeyCmd returns the command that binds an account's public key. It can be run once per account.
-func BindKeyCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "bind-key",
-		Short: "Bind an account's public key (once per account)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			address, _ := cmd.Flags().GetString("address")
-			pubHex, _ := cmd.Flags().GetString("public-key")
-			if address == "" || pubHex == "" {
-				return errors.New("--address and --public-key are required")
-			}
-			pub, err := hex.DecodeString(pubHex)
-			if err != nil {
-				return errors.New("--public-key must be hex")
-			}
-			view, release, err := queryView("", true)
-			if err != nil {
-				return err
-			}
-			defer release()
-			if GlobalApp == nil {
-				return errors.New("chain is not running; use 'tptcreditd start' first")
-			}
-			if err := view.IssuanceKeeper.BindKey(address, pub); err != nil {
-				return err
-			}
-			GlobalApp.LogTx("tx-bind-key", fmt.Sprintf("BindKey: %s", address))
-			out, _ := json.MarshalIndent(map[string]string{"address": address, "public_key": pubHex}, "", "  ")
-			fmt.Println(string(out))
-			return nil
-		},
-	}
-	cmd.Flags().String("address", "", "account address")
-	cmd.Flags().String("public-key", "", "the account's Ed25519 public key, hex")
-	return cmd
 }

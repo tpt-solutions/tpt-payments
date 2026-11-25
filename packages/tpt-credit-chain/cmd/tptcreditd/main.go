@@ -163,6 +163,19 @@ func StartCmd() *cobra.Command {
 
 			app.GlobalApp = chainApp
 
+			// The admin API lets commands in other shells submit transactions. It is loopback-only
+			// and needs the token that the node writes to its home directory.
+			adminToken, err := app.LoadOrCreateAdminToken(home)
+			if err != nil {
+				return err
+			}
+			adminAddr, _ := cmd.Flags().GetString("admin-addr")
+			adminSrv, _, err := chainApp.ServeAdmin(adminAddr, adminToken)
+			if err != nil {
+				return err
+			}
+			defer adminSrv.Close()
+
 			fmt.Printf("Starting TPT Credit chain...\n")
 			fmt.Printf("Home directory: %s\n", home)
 			fmt.Printf("Chain ID: %s\n", genesis.ChainID)
@@ -174,5 +187,6 @@ func StartCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("home", "", "Node home directory (default: $TPTCREDIT_HOME, then "+app.DefaultNodeHome+")")
+	cmd.Flags().String("admin-addr", app.DefaultAdminAddr, "loopback address for the admin API that commands use to submit transactions")
 	return cmd
 }

@@ -1,14 +1,12 @@
 package app
 
 import (
-	"crypto/ed25519"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
-	"cosmossdk.io/math"
 	"github.com/spf13/cobra"
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-credit-chain/x/issuance"
@@ -227,120 +225,6 @@ func UpdateFrequencyCmd() *cobra.Command {
 
 	cmd.Flags().String("address", "", "Cosmos bech32 address")
 	cmd.Flags().String("freq", "", "New payout frequency (weekly, biweekly, monthly, quarterly, annual)")
-	return cmd
-}
-
-// SendCreditsCmd returns the send-credits CLI command.
-func SendCreditsCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "send",
-		Short: "Send credits between accounts",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			from, _ := cmd.Flags().GetString("from")
-			to, _ := cmd.Flags().GetString("to")
-			amount, _ := cmd.Flags().GetString("amount")
-			keyPath, _ := cmd.Flags().GetString("key-file")
-			nonce, _ := cmd.Flags().GetUint64("nonce")
-
-			if from == "" || to == "" || amount == "" {
-				return fmt.Errorf("--from, --to, and --amount are required")
-			}
-			if keyPath == "" || nonce == 0 {
-				return fmt.Errorf("--key-file and --nonce are required: a transfer must be signed by the sender")
-			}
-			priv, err := loadSigningKey(keyPath)
-			if err != nil {
-				return err
-			}
-
-			if GlobalApp == nil {
-				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
-			}
-			GlobalApp.mu.Lock()
-			defer GlobalApp.mu.Unlock()
-
-			amountInt, ok := math.NewIntFromString(amount)
-			if !ok {
-				return fmt.Errorf("invalid amount: %s", amount)
-			}
-
-			sig := ed25519.Sign(priv, issuance.SendSigningBytes(from, to, amountInt, nonce))
-			event, err := GlobalApp.IssuanceKeeper.SendCreditsSigned(issuance.SignedSend{
-				From: from, To: to, Amount: amountInt, Nonce: nonce, Signature: sig,
-			})
-			if err != nil {
-				return fmt.Errorf("send failed: %w", err)
-			}
-
-			GlobalApp.LogTx("tx-send", fmt.Sprintf("Send: %s -> %s, %s ucredit", from, to, amount))
-
-			eventJSON, _ := json.MarshalIndent(event, "", "  ")
-			fmt.Println(string(eventJSON))
-			return nil
-		},
-	}
-
-	cmd.Flags().String("from", "", "Sender address")
-	cmd.Flags().String("to", "", "Recipient address")
-	cmd.Flags().String("amount", "", "Amount in ucredit")
-	cmd.Flags().String("key-file", "", "the sender's key file (see tptcreditd keys new)")
-	cmd.Flags().Uint64("nonce", 0, "one more than the sender's last accepted nonce")
-	return cmd
-}
-
-// BatchSendCmd returns the batch-send CLI command.
-func BatchSendCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "batch-send",
-		Short: "Send credits to multiple recipients",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			from, _ := cmd.Flags().GetString("from")
-			entriesJSON, _ := cmd.Flags().GetString("entries")
-			keyPath, _ := cmd.Flags().GetString("key-file")
-			nonce, _ := cmd.Flags().GetUint64("nonce")
-
-			if from == "" || entriesJSON == "" {
-				return fmt.Errorf("--from and --entries are required")
-			}
-			if keyPath == "" || nonce == 0 {
-				return fmt.Errorf("--key-file and --nonce are required: a transfer must be signed by the sender")
-			}
-			priv, err := loadSigningKey(keyPath)
-			if err != nil {
-				return err
-			}
-
-			if GlobalApp == nil {
-				return fmt.Errorf("chain is not running; use 'tptcreditd start' first")
-			}
-			GlobalApp.mu.Lock()
-			defer GlobalApp.mu.Unlock()
-
-			var entries []issuance.BatchSendEntry
-			if err := json.Unmarshal([]byte(entriesJSON), &entries); err != nil {
-				return fmt.Errorf("invalid entries JSON: %w", err)
-			}
-
-			sig := ed25519.Sign(priv, issuance.BatchSigningBytes(from, entries, nonce))
-			event, err := GlobalApp.IssuanceKeeper.BatchSendSigned(issuance.SignedBatch{
-				From: from, Entries: entries, Nonce: nonce, Signature: sig,
-			})
-			if err != nil {
-				return fmt.Errorf("batch send failed: %w", err)
-			}
-
-			GlobalApp.LogTx("tx-batch-send", fmt.Sprintf("BatchSend: %s, %d recipients", from, len(entries)))
-
-			eventJSON, _ := json.MarshalIndent(event, "", "  ")
-			fmt.Println(string(eventJSON))
-			return nil
-		},
-	}
-
-	cmd.Flags().String("from", "", "Sender address")
-	cmd.Flags().String("entries", "", "JSON array of {to,amount} objects")
-	cmd.Flags().String("key-file", "", "the sender's key file (see tptcreditd keys new)")
-	cmd.Flags().Uint64("nonce", 0, "one more than the sender's last accepted nonce")
 	return cmd
 }
 
