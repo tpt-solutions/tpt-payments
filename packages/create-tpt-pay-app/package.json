@@ -13,7 +13,7 @@
     "templates"
   ],
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/scaffold.test.js"
   },
   "engines": {
     "node": ">=18"
