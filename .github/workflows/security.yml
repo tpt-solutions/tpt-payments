@@ -58,7 +58,7 @@ jobs:
           node-version: "20"
       - name: Audit JS packages
         run: |
-          for dir in frontend packages/tpt-pay deploy/testnet/faucet examples/node-express-checkout; do
+          for dir in frontend packages/tpt-pay deploy/testnet/faucet examples/node-express-checkout examples/nextjs-checkout; do
             echo "Auditing $dir"
             (cd "$dir" && npm audit --omit=dev --audit-level=high)
           done

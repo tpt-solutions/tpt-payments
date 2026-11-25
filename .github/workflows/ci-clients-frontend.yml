@@ -171,6 +171,9 @@ jobs:
       - name: Express checkout
         working-directory: examples/node-express-checkout
         run: npm install && npm test
+      - name: Next.js checkout
+        working-directory: examples/nextjs-checkout
+        run: npm install && npm test
       - name: Go receiver
         # GOWORK=off: the repository's go.work is above this module and does not include it.
         working-directory: examples/go-minimal
