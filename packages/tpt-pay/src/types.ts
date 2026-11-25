@@ -17,6 +17,8 @@ export interface PaymentIntent {
   object: 'payment_intent';
   amount: number;
   currency: string;
+  /** IDs of the merchant flag rules that matched at creation. Always present. */
+  risk_flags?: string[];
   status: PaymentIntentStatus;
   capture_method: 'automatic' | 'manual';
   confirmation_method: string;

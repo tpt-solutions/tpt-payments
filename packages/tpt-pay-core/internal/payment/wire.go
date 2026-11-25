@@ -32,5 +32,11 @@ func Wire(i *Intent) map[string]any {
 	if i.CancellationReason != "" {
 		resp["cancellation_reason"] = i.CancellationReason
 	}
+	// Always an array, so clients need not check for null.
+	flags := i.RiskFlags
+	if flags == nil {
+		flags = []string{}
+	}
+	resp["risk_flags"] = flags
 	return resp
 }

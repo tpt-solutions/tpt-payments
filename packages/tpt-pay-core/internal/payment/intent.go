@@ -52,8 +52,10 @@ type Intent struct {
 	CancellationReason string
 	LedgerTxnID        string
 	Metadata           map[string]string
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	// RiskFlags are the IDs of the merchant flag rules that matched when the intent was created.
+	RiskFlags []string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // validTransitions maps each status to the set of statuses it can move to.

@@ -181,6 +181,9 @@ func (l *Ledger) RunReconcileJob(ctx context.Context, interval time.Duration, re
 			return
 		case <-ticker.C:
 			r, err := l.Reconcile(ctx)
+			if ctx.Err() != nil {
+				return // stopped mid-run: not a failed reconciliation
+			}
 			report(r, err)
 		}
 	}

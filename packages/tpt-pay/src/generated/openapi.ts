@@ -603,6 +603,8 @@ export interface components {
             cancellation_reason?: string;
             /** Format: uuid */
             ledger_transaction_id?: string;
+            /** @description The IDs of the merchant flag rules that matched when the payment was created. A flag does not change how the payment is processed; it is recorded for review. Always present; empty when nothing matched. */
+            risk_flags?: string[];
         };
         WebhookEndpoint: {
             id?: string;
@@ -1308,6 +1310,8 @@ export interface operations {
                 limit?: number;
                 starting_after?: string;
                 endpoint_id?: string;
+                /** @description Set to payload to include each delivery's event JSON (the body that was sent). Off by default. */
+                include?: "payload";
             };
             header?: never;
             path?: never;

@@ -271,6 +271,11 @@ func (l *Ledger) RunIntegrityJob(ctx context.Context, interval time.Duration, re
 			return
 		case <-ticker.C:
 			n, err := l.VerifyIntegrity(ctx)
+			// A run cut short by shutdown is not a failed check: say nothing, so that a stop
+			// does not raise an incident.
+			if ctx.Err() != nil {
+				return
+			}
 			report(n, err)
 		}
 	}

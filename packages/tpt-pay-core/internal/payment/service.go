@@ -81,8 +81,9 @@ func (s *Service) Create(ctx context.Context, scope Scope, params CreateParams) 
 	if err := ValidateMetadata(params.Metadata); err != nil {
 		return nil, err
 	}
+	var riskFlags []string
 	if s.policy != nil {
-		decision := s.policy.Evaluate(policy.Input{
+		decision, flags := s.policy.EvaluateWithFlags(policy.Input{
 			Amount: params.Amount, Currency: code, Livemode: scope.Livemode, Metadata: params.Metadata,
 		})
 		switch decision {
@@ -90,9 +91,14 @@ func (s *Service) Create(ctx context.Context, scope Scope, params CreateParams) 
 			slog.Warn("payment blocked by merchant rule", "merchant_id", scope.MerchantID, "amount", params.Amount)
 			return nil, apierrors.PaymentBlocked()
 		case policy.Flag:
-			// Flags are logged for review. They do not change the payment yet.
-			slog.Info("payment flagged by merchant rule", "merchant_id", scope.MerchantID, "amount", params.Amount)
+			// A flag does not change how the payment is processed. The matching rule IDs are
+			// stored on the intent so that a person can review it.
+			riskFlags = flags
+			slog.Info("payment flagged by merchant rule", "merchant_id", scope.MerchantID, "amount", params.Amount, "rules", flags)
 		}
+	}
+	if riskFlags == nil {
+		riskFlags = []string{}
 	}
 	if err := ValidCaptureMethod(string(params.CaptureMethod)); err != nil {
 		return nil, err
@@ -114,19 +120,19 @@ func (s *Service) Create(ctx context.Context, scope Scope, params CreateParams) 
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `
 			INSERT INTO payment_intents
-				(id, merchant_id, amount, currency, status, capture_method, confirmation_method, metadata, livemode)
+				(id, merchant_id, amount, currency, status, capture_method, confirmation_method, metadata, livemode, risk_flags)
 			VALUES
-				($1, $2, $3, $4, $5, $6, $7, $8, $9)
+				($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			RETURNING id, merchant_id, amount, currency, status, capture_method, confirmation_method,
-			          metadata, livemode, created_at, updated_at
+			          metadata, livemode, risk_flags, created_at, updated_at
 		`,
 			id, scope.MerchantID, params.Amount, strings.ToUpper(params.Currency),
 			StatusRequiresPaymentMethod, params.CaptureMethod, params.ConfirmationMethod,
-			metadataToJSON(params.Metadata), scope.Livemode,
+			metadataToJSON(params.Metadata), scope.Livemode, riskFlags,
 		).Scan(
 			&intent.ID, &intent.MerchantID, &intent.Amount, &intent.Currency,
 			&intent.Status, &intent.CaptureMethod, &intent.ConfirmationMethod,
-			&intent.Metadata, &intent.Livemode, &intent.CreatedAt, &intent.UpdatedAt,
+			&intent.Metadata, &intent.Livemode, &intent.RiskFlags, &intent.CreatedAt, &intent.UpdatedAt,
 		); err != nil {
 			return fmt.Errorf("create payment intent: %w", err)
 		}
@@ -509,7 +515,7 @@ func getWith(ctx context.Context, q queryer, id string) (*Intent, error) {
 		       COALESCE(payment_method_id, ''), COALESCE(adapter_charge_id, ''),
 		       COALESCE(amount_captured, 0), canceled_at,
 		       COALESCE(cancellation_reason, ''), COALESCE(ledger_txn_id::text, ''),
-		       livemode, metadata, created_at, updated_at
+		       livemode, metadata, risk_flags, created_at, updated_at
 		FROM payment_intents
 		WHERE id = $1
 	`, id).Scan(
@@ -518,7 +524,7 @@ func getWith(ctx context.Context, q queryer, id string) (*Intent, error) {
 		&intent.PaymentMethodID, &intent.AdapterChargeID,
 		&intent.AmountCaptured, &intent.CanceledAt,
 		&intent.CancellationReason, &intent.LedgerTxnID,
-		&intent.Livemode, &intent.Metadata, &intent.CreatedAt, &intent.UpdatedAt,
+		&intent.Livemode, &intent.Metadata, &intent.RiskFlags, &intent.CreatedAt, &intent.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, apierrors.NotFound("payment_intent", id)

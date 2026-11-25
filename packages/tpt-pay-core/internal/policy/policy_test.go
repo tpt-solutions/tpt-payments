@@ -134,3 +134,20 @@ func TestParse_EmptyDocumentAllowsEverything(t *testing.T) {
 	e := mustParse(t, `{"rules":[]}`)
 	assert.Equal(t, Allow, e.Evaluate(Input{Amount: 1}))
 }
+
+// The flag IDs are the rules that matched, in rule order. A block returns no flags.
+func TestEvaluateWithFlags_ReturnsMatchingFlagRules(t *testing.T) {
+	e := mustParse(t, sampleDoc)
+
+	d, flags := e.EvaluateWithFlags(Input{Amount: 60000, Currency: "usd", Metadata: map[string]string{"tier": "vip"}})
+	assert.Equal(t, Flag, d)
+	assert.Equal(t, []string{"large_payment_review", "vip_metadata"}, flags)
+
+	d, flags = e.EvaluateWithFlags(Input{Amount: 1000, Currency: "usd"})
+	assert.Equal(t, Allow, d)
+	assert.Empty(t, flags)
+
+	d, flags = e.EvaluateWithFlags(Input{Amount: 2000000, Currency: "xyz", Metadata: map[string]string{"tier": "vip"}})
+	assert.Equal(t, Block, d)
+	assert.Nil(t, flags, "a blocked payment records no flags")
+}

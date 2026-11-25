@@ -176,17 +176,26 @@ func (e *Engine) Rules() []Rule {
 
 // Evaluate returns the decision for a payment.
 func (e *Engine) Evaluate(in Input) Decision {
+	decision, _ := e.EvaluateWithFlags(in)
+	return decision
+}
+
+// EvaluateWithFlags returns the decision and the IDs of the flag rules that matched. The IDs are
+// empty when the decision is Allow or Block; a blocked payment is refused, so nothing is recorded.
+func (e *Engine) EvaluateWithFlags(in Input) (Decision, []string) {
 	decision := Allow
+	var flags []string
 	for _, r := range e.rules {
 		if !matches(r, in) {
 			continue
 		}
 		if r.Action == "block" {
-			return Block
+			return Block, nil
 		}
 		decision = Flag
+		flags = append(flags, r.ID)
 	}
-	return decision
+	return decision, flags
 }
 
 // Trace evaluates every rule and reports each one, for dry runs. The decision is the same one

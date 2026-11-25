@@ -52,3 +52,9 @@ A request that is still running gets a `409`. Keys expire after 24 hours.
 Errors are JSON with `type`, `code`, `message` and, for parameter errors, `param`. Invalid parameters are
 `400`. A payment blocked by a merchant rule is `402` with code `payment_blocked`. Rate limits are `429`
 with `Retry-After`. Request bodies over 1 MB are `413`.
+
+## Risk flags
+
+A merchant rule with `"action": "flag"` does not change how a payment is processed. The IDs of the flag rules
+that matched are stored on the payment as `risk_flags`, so a person can review it. A payment that matches a
+`block` rule is refused with `402` and `payment_blocked`, and nothing is stored.

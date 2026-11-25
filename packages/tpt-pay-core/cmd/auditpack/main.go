@@ -9,6 +9,9 @@
 //
 //	DATABASE_URL=... auditpack --from 2026-01-01T00:00:00Z --to 2026-02-01T00:00:00Z --out pack.json
 //	auditpack --verify pack.json
+//
+// With --record, the period's root is also stored in ledger_checkpoints. A later export of the
+// same period must give the same root; a different one fails, because the ledger has changed.
 package main
 
 import (
@@ -38,6 +41,7 @@ func run() error {
 	to := flag.String("to", "", "period end, RFC 3339 (exclusive)")
 	out := flag.String("out", "", "output file (default stdout)")
 	verify := flag.String("verify", "", "verify an existing pack file instead of exporting")
+	record := flag.Bool("record", false, "also store the period's root in ledger_checkpoints (refuses a changed root)")
 	flag.Parse()
 
 	if *verify != "" {
@@ -64,9 +68,16 @@ func run() error {
 	}
 	defer pool.Close()
 
-	pack, err := ledger.New(pool).BuildAuditPack(ctx, start, end)
+	lgr := ledger.New(pool)
+	pack, err := lgr.BuildAuditPack(ctx, start, end)
 	if err != nil {
 		return err
+	}
+	if *record {
+		if err := lgr.RecordCheckpoint(ctx, pack); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stderr, "checkpoint recorded")
 	}
 
 	w := io.Writer(os.Stdout)

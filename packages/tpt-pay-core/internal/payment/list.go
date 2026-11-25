@@ -92,7 +92,7 @@ func (s *Service) ListIntents(ctx context.Context, p ListParams) (ListPage, erro
 		       COALESCE(payment_method_id, ''), COALESCE(adapter_charge_id, ''),
 		       COALESCE(amount_captured, 0), canceled_at,
 		       COALESCE(cancellation_reason, ''), COALESCE(ledger_txn_id::text, ''),
-		       livemode, metadata, created_at, updated_at
+		       livemode, metadata, risk_flags, created_at, updated_at
 		FROM payment_intents
 		WHERE merchant_id = $1
 		  AND livemode = $2
@@ -116,7 +116,7 @@ func (s *Service) ListIntents(ctx context.Context, p ListParams) (ListPage, erro
 			&intent.PaymentMethodID, &intent.AdapterChargeID,
 			&intent.AmountCaptured, &intent.CanceledAt,
 			&intent.CancellationReason, &intent.LedgerTxnID,
-			&intent.Livemode, &intent.Metadata, &intent.CreatedAt, &intent.UpdatedAt,
+			&intent.Livemode, &intent.Metadata, &intent.RiskFlags, &intent.CreatedAt, &intent.UpdatedAt,
 		); err != nil {
 			return ListPage{}, fmt.Errorf("scan payment intent: %w", err)
 		}

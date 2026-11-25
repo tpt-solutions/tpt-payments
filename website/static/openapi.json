@@ -128,6 +128,13 @@
           "ledger_transaction_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "risk_flags": {
+            "type": "array",
+            "description": "The IDs of the merchant flag rules that matched when the payment was created. A flag does not change how the payment is processed; it is recorded for review. Always present; empty when nothing matched.",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -1300,6 +1307,18 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "include",
+            "in": "query",
+            "required": false,
+            "description": "Set to payload to include each delivery's event JSON (the body that was sent). Off by default.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "payload"
+              ]
             }
           }
         ],
