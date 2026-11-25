@@ -63,5 +63,8 @@ func TestKnownEventTypes_ListsOnlyEmittedEvents(t *testing.T) {
 		"payment_intent.payment_failed",
 		"payment_intent.canceled",
 		"charge.refunded",
+		"subscription.created",
+		"subscription.past_due",
+		"subscription.canceled",
 	}, got)
 }

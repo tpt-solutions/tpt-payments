@@ -256,6 +256,9 @@ var eventTypes = []string{
 	"payment_intent.payment_failed",
 	"payment_intent.canceled",
 	"charge.refunded",
+	"subscription.created",
+	"subscription.past_due",
+	"subscription.canceled",
 }
 
 // eventObject returns a representative data object for a test event.

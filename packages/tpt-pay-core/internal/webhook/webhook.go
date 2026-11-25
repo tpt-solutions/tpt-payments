@@ -31,6 +31,11 @@ const (
 	EventPaymentIntentFailed    EventType = "payment_intent.payment_failed"
 	// EventChargeRefunded uses Stripe's name so existing receivers work unchanged.
 	EventChargeRefunded EventType = "charge.refunded"
+	// Subscription events. past_due is sent when the first charge of a period fails; canceled is
+	// sent for a cancellation the merchant asked for and for one made after the retries run out.
+	EventSubscriptionCreated  EventType = "subscription.created"
+	EventSubscriptionPastDue  EventType = "subscription.past_due"
+	EventSubscriptionCanceled EventType = "subscription.canceled"
 )
 
 // Event is the webhook event envelope — matches Stripe's event object shape.
