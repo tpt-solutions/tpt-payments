@@ -110,7 +110,67 @@ services:
       timeout: 5s
       retries: 5
 
+  # Monitoring is opt-in: docker compose --profile monitoring up -d
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    volumes:
+      - ./deploy/monitoring/prometheus-pay.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    depends_on:
+      tpt-pay-core:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    profiles: ["monitoring"]
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      # DEVELOPMENT ONLY: required, there is no default password.
+      # Compose interpolates this file even when the profile is off, so a missing value is caught
+      # by the entrypoint below (only when Grafana actually starts), not by compose itself.
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-__unset__}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        if [ "$$GF_SECURITY_ADMIN_PASSWORD" = "__unset__" ] || [ -z "$$GF_SECURITY_ADMIN_PASSWORD" ]; then
+          echo "set GRAFANA_ADMIN_PASSWORD in the environment before starting the monitoring profile" >&2
+          exit 1
+        fi
+        exec /run.sh
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deploy/monitoring/pay/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   postgres_data:
   redis_data:
   nats_data:
+  prometheus_data:
+  grafana_data:
