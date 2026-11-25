@@ -2,6 +2,7 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -78,7 +79,7 @@ func (s *Service) ListIntents(ctx context.Context, p ListParams) (ListPage, erro
 			SELECT created_at, id FROM payment_intents
 			WHERE id = $1 AND merchant_id = $2 AND livemode = $3
 		`, p.StartingAfter, p.Scope.MerchantID, p.Scope.Livemode).Scan(&createdAt, &id)
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return ListPage{}, apierrors.InvalidParam("starting_after", "no payment intent with that id")
 		}
 		if err != nil {

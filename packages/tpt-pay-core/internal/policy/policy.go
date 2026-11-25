@@ -227,13 +227,13 @@ func matches(r Rule, in Input) bool {
 // holds reports whether one condition is true. A metadata key that is absent never matches,
 // except for not_in, where absence means the value is not in the list.
 func holds(c Condition, in Input) bool {
-	switch {
-	case c.Field == "amount":
+	switch c.Field {
+	case "amount":
 		return compareNumber(float64(in.Amount), c)
-	case c.Field == "currency":
+	case "currency":
 		return compareString(in.Currency, c)
-	case c.Field == "livemode":
-		want := c.Value.(bool)
+	case "livemode":
+		want, _ := c.Value.(bool)
 		if c.Op == "eq" {
 			return in.Livemode == want
 		}
@@ -249,7 +249,7 @@ func holds(c Condition, in Input) bool {
 }
 
 func compareNumber(v float64, c Condition) bool {
-	want := c.Value.(float64)
+	want, _ := c.Value.(float64)
 	switch c.Op {
 	case "eq":
 		return v == want
@@ -270,20 +270,24 @@ func compareNumber(v float64, c Condition) bool {
 func compareString(v string, c Condition) bool {
 	switch c.Op {
 	case "eq":
-		return v == c.Value.(string)
+		want, _ := c.Value.(string)
+		return v == want
 	case "neq":
-		return v != c.Value.(string)
+		want, _ := c.Value.(string)
+		return v != want
 	case "in":
-		return containsString(c.Value.([]any), v)
+		list, _ := c.Value.([]any)
+		return containsString(list, v)
 	case "not_in":
-		return !containsString(c.Value.([]any), v)
+		list, _ := c.Value.([]any)
+		return !containsString(list, v)
 	}
 	return false
 }
 
 func containsString(list []any, v string) bool {
 	for _, item := range list {
-		if item.(string) == v {
+		if s, _ := item.(string); s == v {
 			return true
 		}
 	}

@@ -2,6 +2,7 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -69,7 +70,7 @@ func (s *Service) ListRefunds(ctx context.Context, p RefundListParams) (RefundLi
 			SELECT created_at, id FROM refunds
 			WHERE id = $1 AND merchant_id = $2 AND livemode = $3
 		`, p.StartingAfter, p.Scope.MerchantID, p.Scope.Livemode).Scan(&createdAt, &id)
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return RefundListPage{}, apierrors.InvalidParam("starting_after", "no refund with that id")
 		}
 		if err != nil {

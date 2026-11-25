@@ -31,12 +31,12 @@ func fakeVault(t *testing.T) *httptest.Server {
 		}
 		var body map[string]string
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		switch {
-		case r.URL.Path == "/v1/transit/encrypt/tpt-webhooks":
+		switch r.URL.Path {
+		case "/v1/transit/encrypt/tpt-webhooks":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"data": map[string]string{"ciphertext": "vault:v1:" + body["plaintext"]},
 			})
-		case r.URL.Path == "/v1/transit/decrypt/tpt-webhooks":
+		case "/v1/transit/decrypt/tpt-webhooks":
 			ct := strings.TrimPrefix(body["ciphertext"], "vault:v1:")
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]string{"plaintext": ct}})
 		default:
