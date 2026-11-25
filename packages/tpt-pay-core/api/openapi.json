@@ -309,6 +309,96 @@
             "description": "If set, Authorize returns this card decline inside the window. Other calls fail with a network error."
           }
         }
+      },
+      "Subscription": {
+        "type": "object",
+        "required": [
+          "id",
+          "object",
+          "status",
+          "amount",
+          "currency",
+          "interval",
+          "payment_method",
+          "current_period_start",
+          "current_period_end",
+          "cancel_at_period_end",
+          "livemode",
+          "created"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "sub_..."
+          },
+          "object": {
+            "type": "string",
+            "enum": [
+              "subscription"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "past_due",
+              "canceled"
+            ],
+            "description": "active: charges succeed. past_due: the last charge failed and is being retried (or is on hold for reconciliation). canceled: no more charges."
+          },
+          "amount": {
+            "type": "integer",
+            "description": "Amount per period, in the currency's smallest unit."
+          },
+          "currency": {
+            "type": "string"
+          },
+          "interval": {
+            "type": "string",
+            "enum": [
+              "week",
+              "month",
+              "year"
+            ]
+          },
+          "payment_method": {
+            "type": "string"
+          },
+          "current_period_start": {
+            "type": "integer",
+            "description": "Unix time. The period the next charge pays for starts here, and the charge is due then."
+          },
+          "current_period_end": {
+            "type": "integer",
+            "description": "Unix time."
+          },
+          "cancel_at_period_end": {
+            "type": "boolean"
+          },
+          "cancel_reason": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "payment_failed",
+              "canceled_at_period_end"
+            ]
+          },
+          "canceled_at": {
+            "type": "integer"
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "livemode": {
+            "type": "boolean"
+          },
+          "created": {
+            "type": "integer"
+          }
+        }
       }
     },
     "responses": {
@@ -1794,6 +1884,229 @@
             }
           },
           "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/subscriptions": {
+      "post": {
+        "summary": "Create a subscription",
+        "description": "Charges the first period before responding. A declined first charge still creates the subscription, as past_due, and retries it on the schedule (after 1, 3 and 5 days; cancelled after the third retry fails). Renewals are charged automatically at each period start. Test mode only: live keys get 403 until a live billing policy is decided.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "currency",
+                  "interval",
+                  "payment_method"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string",
+                    "enum": [
+                      "week",
+                      "month",
+                      "year"
+                    ]
+                  },
+                  "payment_method": {
+                    "type": "string",
+                    "description": "A payment method ID, as used by payment intents."
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The subscription, after its first charge",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "summary": "List subscriptions",
+        "description": "Newest first. Pass starting_after with the last ID of a page to get the next one. Test mode only: live keys get 403 until a live billing policy is decided.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          {
+            "name": "starting_after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of subscriptions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "object": {
+                      "type": "string",
+                      "enum": [
+                        "list"
+                      ]
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Subscription"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/subscriptions/{id}": {
+      "get": {
+        "summary": "Retrieve a subscription",
+        "description": "Returns the subscription with its current period and status. Test mode only: live keys get 403 until a live billing policy is decided.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The subscription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/subscriptions/{id}/cancel": {
+      "post": {
+        "summary": "Cancel a subscription",
+        "description": "Cancels now (reason requested), or with at_period_end at the end of the paid period (reason canceled_at_period_end). A canceled subscription cannot be canceled again. Test mode only: live keys get 403 until a live billing policy is decided.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "at_period_end": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The subscription",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
             "$ref": "#/components/responses/Error"
           }
         }

@@ -29,6 +29,7 @@ import (
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/payment"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/ratelimit"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/secretbox"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/subscription"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/tracing"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/vault"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/webhook"
@@ -170,9 +171,14 @@ func run() error {
 
 	// Outside the router so that every request, including the operational endpoints, sees the
 	// client address the trusted-proxy rules produce.
+	// Subscriptions bill on the sandbox clock too, so advancing test time renews them.
+	subSvc := subscription.NewService(pool, paymentSvc, sandboxClock)
+	go runSubscriptionBilling(ctx, subSvc, subscriptionBillingInterval)
+
 	router := middleware.TrustedProxyRealIP(cfg.Server.TrustedProxies)(
 		api.NewRouter(pool, paymentSvc, apiKeySvc, secrets, metricsRegistry, limiter,
-			api.WithTestClocks(sandboxClock, adpt)))
+			api.WithTestClocks(sandboxClock, adpt),
+			api.WithSubscriptions(subSvc)))
 
 	// Webhook delivery worker: drains the outbox written by payment state changes.
 	deliveries := webhook.NewWorker(pool, secrets, webhook.WorkerConfig{

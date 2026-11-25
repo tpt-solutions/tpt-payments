@@ -15,6 +15,7 @@ import (
 
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/adapter/sandbox"
 	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/clock"
+	"github.com/tpt-solutions/tpt-payments/packages/tpt-pay-core/internal/subscription"
 )
 
 // TestOpenAPIMatchesRouter fails when a route is added or removed without updating
@@ -23,7 +24,8 @@ func TestOpenAPIMatchesRouter(t *testing.T) {
 	// Built with the sandbox-only routes, so every route the sandbox server serves is checked.
 	clk := clock.NewTest(time.Now())
 	router := NewRouter(nil, nil, nil, nil, prometheus.NewRegistry(), nil,
-		WithTestClocks(clk, sandbox.New(sandbox.Config{Clock: clk})))
+		WithTestClocks(clk, sandbox.New(sandbox.Config{Clock: clk})),
+		WithSubscriptions(subscription.NewService(nil, nil, clk)))
 	chiRoutes, ok := router.(chi.Routes)
 	require.True(t, ok, "router must be a chi router")
 	routes := map[string]bool{}

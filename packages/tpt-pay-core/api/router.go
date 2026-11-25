@@ -27,7 +27,15 @@ import (
 type RouterOption func(*routerOptions)
 
 type routerOptions struct {
-	testClocks *handlers.TestClocks
+	testClocks    *handlers.TestClocks
+	subscriptions *handlers.Subscriptions
+}
+
+// WithSubscriptions serves the /v1/subscriptions routes.
+func WithSubscriptions(svc handlers.SubscriptionService) RouterOption {
+	return func(o *routerOptions) {
+		o.subscriptions = handlers.NewSubscriptions(svc)
+	}
 }
 
 // WithTestClocks serves the sandbox time-travel endpoints under /v1/test_clocks. Only the
@@ -123,6 +131,14 @@ func NewRouter(
 		r.With(secret).Get("/api_keys", ak.List)
 		r.With(secret, audit.Record("api_key.create", "api_key")).Post("/api_keys", ak.Create)
 		r.With(secret, audit.Record("api_key.revoke", "api_key")).Delete("/api_keys/{id}", ak.Revoke)
+
+		// Subscriptions (only when the server enables them). Every route needs a secret key.
+		if sc := ro.subscriptions; sc != nil {
+			r.With(secret, audit.Record("subscription.create", "subscription")).Post("/subscriptions", sc.Create)
+			r.With(secret).Get("/subscriptions", sc.List)
+			r.With(secret).Get("/subscriptions/{id}", sc.Retrieve)
+			r.With(secret, audit.Record("subscription.cancel", "subscription")).Post("/subscriptions/{id}/cancel", sc.Cancel)
+		}
 
 		// Sandbox time travel (only when the server enables it; test keys only).
 		if tc := ro.testClocks; tc != nil {
