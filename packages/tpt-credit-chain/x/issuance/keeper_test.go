@@ -229,14 +229,12 @@ func TestProcessPayouts_Weekly_FullYear(t *testing.T) {
 	blocksPerYear := issuance.BlocksPerYear
 	blocksPerWeek := blocksPerYear / 52
 
-	events := make([]issuance.CreditsIssuedEvent, 0)
 
 	// Simulate a full year: process payouts at each weekly boundary.
 	for week := int64(0); week < 52; week++ {
 		blockHeight := 1 + week*blocksPerWeek
 		k.SetBlockHeight(blockHeight)
-		payouts := k.ProcessPayouts()
-		events = append(events, payouts...)
+		k.ProcessPayouts()
 	}
 
 	// Verify total received equals annual allocation (within dust).
@@ -314,13 +312,11 @@ func TestProcessPayouts_Biweekly_FullYear(t *testing.T) {
 	blocksPerYear := issuance.BlocksPerYear
 	blocksPerBiweek := blocksPerYear / 26
 
-	events := make([]issuance.CreditsIssuedEvent, 0)
 
 	for period := int64(0); period < 26; period++ {
 		blockHeight := 1 + period*blocksPerBiweek
 		k.SetBlockHeight(blockHeight)
-		payouts := k.ProcessPayouts()
-		events = append(events, payouts...)
+		k.ProcessPayouts()
 	}
 
 	acct := k.GetAccount(testAddr1)

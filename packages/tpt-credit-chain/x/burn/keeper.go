@@ -213,7 +213,6 @@ func (k *Keeper) executeBurn(year int64) *BurnSummary {
 
 	// Phase 3: Execute burn and redistribution for each account.
 	perHumanInt := math.NewInt(perHuman)
-	var burnEvents []EventAnnualBurn
 
 	for _, br := range burnResults {
 		// Set the account's new balance = redistribution share.
@@ -237,7 +236,6 @@ func (k *Keeper) executeBurn(year int64) *BurnSummary {
 			YearHeight:          burnHeight,
 			Year:                year,
 		}
-		burnEvents = append(burnEvents, burnEvent)
 
 		if k.events != nil {
 			k.events.EmitAnnualBurn(burnEvent)
