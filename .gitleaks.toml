@@ -1,0 +1,22 @@
+# gitleaks configuration. Runs in CI (security.yml) with the default rules plus the allowlist below.
+#
+# The allowlist is path-based on purpose, and each entry says why:
+#   *_test.go        test fixtures use fake keys and secrets so tests can run; a real key in a test
+#                    file would still be a leak, so these files are reviewed like any other code.
+#   atlas.sum        migration checksums (SHA-256 hashes), which look like high-entropy strings.
+#   node_modules, .next, website/build   installed or generated output, never source.
+
+title = "TPT Pay gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fixtures, checksums and generated output"
+paths = [
+  '''_test\.go$''',
+  '''migrations/atlas\.sum$''',
+  '''(^|/)node_modules/''',
+  '''(^|/)\.next/''',
+  '''(^|/)website/build/''',
+]

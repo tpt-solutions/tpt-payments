@@ -1,0 +1,8 @@
+# Historical findings, reviewed and accepted. Each is a value that is no longer in HEAD:
+# the mock API keys and webhook secret were replaced with placeholders, and the demo login
+# account (password hash for a well-known demo password) was moved to DEMO_USER_* env vars.
+# Rewriting history to remove them is a separate, destructive decision.
+8de6c8b46874dfb08c7bee5ac0283da86f6f9ae5:frontend/app/api/auth/login/route.ts:generic-api-key:21
+8de6c8b46874dfb08c7bee5ac0283da86f6f9ae5:frontend/app/api-keys/page.tsx:generic-api-key:42
+8de6c8b46874dfb08c7bee5ac0283da86f6f9ae5:frontend/app/api-keys/page.tsx:stripe-access-token:32
+8de6c8b46874dfb08c7bee5ac0283da86f6f9ae5:frontend/app/webhooks/page.tsx:generic-api-key:37

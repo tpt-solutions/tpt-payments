@@ -38,6 +38,15 @@ jobs:
         run: go test -count=1 -race -short -coverprofile=coverage.out -covermode=atomic ./packages/tpt-pay-core/...
       - name: Coverage summary
         run: go tool cover -func=coverage.out | tail -1 >> "$GITHUB_STEP_SUMMARY"
+      # A ratchet, not a target: the floor is set just under the measured unit-test coverage
+      # (42.0% on the short suite) so a drop fails the build. Raise it when coverage rises.
+      - name: Coverage floor
+        run: |
+          floor=40
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%", "", $NF); print $NF}')
+          echo "unit-test coverage ${total}% (floor ${floor}%)"
+          awk -v t="$total" -v f="$floor" 'BEGIN { exit !(t + 0 >= f + 0) }' \
+            || { echo "::error::coverage ${total}% is below the ${floor}% floor"; exit 1; }
       - uses: actions/upload-artifact@v7
         with:
           name: pay-core-coverage
