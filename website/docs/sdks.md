@@ -49,6 +49,17 @@ err = tptpay.VerifyWebhook(body, r.Header.Get(tptpay.SignatureHeader), secret, 0
 The Go client uses only the standard library. Errors are `*tptpay.Error`, and `IsCardError`, `IsNotFound` and
 `IsConnectionError` tell the common cases apart. It is written by hand, not generated from the OpenAPI document.
 
+## PHP: `tpt-solutions/tpt-pay`
+
+```php
+use TPTPay\Client;
+
+$client = new Client(getenv('TPT_SECRET_KEY'), ['baseUrl' => 'http://localhost:8080/v1']);
+$intent = $client->paymentIntents->create(['amount' => 2500, 'currency' => 'usd']);
+```
+
+Needs PHP 8.1 or later with `curl`, `json` and `hash`. It is hand-written, not generated.
+
 ## Command line: `tpt`
 
 Build it from `packages/tpt-pay-core/cmd/tpt`. Commands:
