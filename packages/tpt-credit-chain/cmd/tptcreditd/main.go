@@ -51,7 +51,9 @@ Denomination: ucredit (1 credit = 1,000,000 ucredit)
 			if home == "" {
 				home = app.DefaultNodeHome
 			}
-			os.Setenv("TPTCREDIT_HOME", home)
+			if err := os.Setenv("TPTCREDIT_HOME", home); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
@@ -174,7 +176,7 @@ func StartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer adminSrv.Close()
+			defer func() { _ = adminSrv.Close() }()
 
 			fmt.Printf("Starting TPT Credit chain...\n")
 			fmt.Printf("Home directory: %s\n", home)

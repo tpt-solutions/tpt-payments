@@ -34,7 +34,9 @@ Bind the public key to an account with: tptcreditd tx issuance bind-key.`,
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), hex.EncodeToString(pub))
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), hex.EncodeToString(pub)); err != nil {
+				return err
+			}
 			return nil
 		},
 	}
@@ -57,12 +59,12 @@ func newKeyFile(path string) (ed25519.PublicKey, error) {
 		return nil, fmt.Errorf("create key file: %w", err)
 	}
 	if _, err := f.WriteString(hex.EncodeToString(seed) + "\n"); err != nil {
-		f.Close()
-		os.Remove(path)
+		_ = f.Close()
+		_ = os.Remove(path)
 		return nil, fmt.Errorf("write key file: %w", err)
 	}
 	if err := f.Close(); err != nil {
-		os.Remove(path)
+		_ = os.Remove(path)
 		return nil, err
 	}
 	return ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey), nil

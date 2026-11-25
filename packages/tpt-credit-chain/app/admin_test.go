@@ -51,7 +51,7 @@ func newAdminFixture(t *testing.T) *adminFixture {
 	require.NoError(t, err)
 	srv, ln, err := chain.ServeAdmin("127.0.0.1:0", token)
 	require.NoError(t, err)
-	t.Cleanup(func() { srv.Close() })
+	t.Cleanup(func() { _ = srv.Close() })
 	return &adminFixture{app: chain, addr: ln.Addr().String(), token: token, home: home, sender: sender, recipient: recipient}
 }
 
@@ -66,7 +66,7 @@ func (f *adminFixture) post(t *testing.T, path, token string, body any) *http.Re
 	}
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	t.Cleanup(func() { resp.Body.Close() })
+	t.Cleanup(func() { _ = resp.Body.Close() })
 	return resp
 }
 
@@ -131,7 +131,7 @@ func TestAdmin_BodiesAreStrict(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+f.token)
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "unknown fields are refused")
 }
 

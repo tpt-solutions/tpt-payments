@@ -205,7 +205,7 @@ func submitRemote(addr, path string, body any) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("no running node answered at %s: %w", addr, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	out, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, err
