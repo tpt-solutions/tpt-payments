@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "TPT Pay API",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Pre-release. Describes only the endpoints the core service serves. Stripe-compatible planned endpoints are listed in the compatibility report, not here.",
     "license": {
       "name": "MIT OR Apache-2.0"

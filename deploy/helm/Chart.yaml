@@ -2,9 +2,8 @@ apiVersion: v2
 name: tpt-payments
 description: TPT Payments - Open Source Stripe Alternative
 type: application
-version: 0.1.0 # x-release-please-version
-appVersion: "0.1.0" # x-release-please-version
-
+version: 0.2.0
+appVersion: 0.1.0
 home: https://github.com/tpt-solutions/tpt-payments
 sources:
   - https://github.com/tpt-solutions/tpt-payments
@@ -17,9 +16,6 @@ keywords:
   - fintech
   - billing
   - subscriptions
-
-# Bundled dependencies are optional and off by default. Production should point
-# database.existingSecret at a managed PostgreSQL instance.
 dependencies:
   - name: postgresql
     version: 18.12.25
