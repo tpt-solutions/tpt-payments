@@ -1,0 +1,21 @@
+{
+  "name": "tpt-example-nextjs-checkout",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A TPT Pay checkout and signed webhook receiver with Next.js (App Router)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build --webpack",
+    "start": "next start",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@tpt/pay": "file:../../packages/tpt-pay",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}
