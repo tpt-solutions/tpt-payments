@@ -251,12 +251,24 @@ class Refunds(_Resource):
 
 
 class Subscriptions(_Resource):
-    """Subscriptions. Not yet served by the core service (see the compatibility report)."""
+    """Recurring charges. Test mode only (sk_test_...) until a live billing policy is decided.
+
+    create() charges the first period before it returns; a declined first charge gives status
+    past_due and the subscription is retried on the schedule. Later periods are charged automatically.
+    """
 
     async def create(self, *, idempotency_key: Optional[str] = None, **fields: Any) -> Dict[str, Any]:
+        """Create a subscription. Fields: amount, currency, interval (week|month|year), payment_method, metadata."""
         return await self.client._request(
             "POST", "/subscriptions", data=fields, idempotency_key=idempotency_key
         )
+
+    async def list(self, *, limit: int = 10, starting_after: Optional[str] = None) -> Dict[str, Any]:
+        """One page of subscriptions, newest first."""
+        params: Dict[str, Any] = {"limit": limit}
+        if starting_after is not None:
+            params["starting_after"] = starting_after
+        return await self.client._request("GET", "/subscriptions", params=params)
 
     async def retrieve(self, subscription_id: str) -> Dict[str, Any]:
         return await self.client._request("GET", f"/subscriptions/{subscription_id}")

@@ -192,3 +192,40 @@ async def test_persistent_server_error_raises_api_error_after_retries():
         await client.close()
     finally:
         await server.close()
+
+
+async def test_subscription_create_list_and_cancel_at_period_end():
+    seen = {}
+
+    async def create(request, n):
+        seen["create"] = await request.json()
+        return web.json_response({"id": "sub_1", "object": "subscription", "status": "active"})
+
+    async def listing(request, n):
+        seen["list"] = dict(request.query)
+        return web.json_response({"object": "list", "data": [], "has_more": False})
+
+    async def cancel(request, n):
+        seen["cancel"] = await request.json()
+        return web.json_response({"id": "sub_1", "object": "subscription", "status": "active", "cancel_at_period_end": True})
+
+    server, _ = await make_server({
+        ("POST", "/v1/subscriptions"): create,
+        ("GET", "/v1/subscriptions"): listing,
+        ("POST", "/v1/subscriptions/sub_1/cancel"): cancel,
+    })
+    try:
+        client = TPTPay("sk_test_abc", api_base=str(server.make_url("/v1")))
+        created = await client.subscriptions.create(amount=1500, currency="usd", interval="month", payment_method="pm_card_visa")
+        page = await client.subscriptions.list(limit=5, starting_after="sub_0")
+        canceled = await client.subscriptions.cancel("sub_1", at_period_end=True)
+        await client.close()
+    finally:
+        await server.close()
+
+    assert created["status"] == "active"
+    assert seen["create"]["interval"] == "month"
+    assert page["has_more"] is False
+    assert seen["list"] == {"limit": "5", "starting_after": "sub_0"}
+    assert canceled["cancel_at_period_end"] is True
+    assert seen["cancel"] == {"at_period_end": True}

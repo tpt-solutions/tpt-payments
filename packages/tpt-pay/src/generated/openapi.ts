@@ -564,6 +564,191 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List subscriptions
+         * @description Newest first. Pass starting_after with the last ID of a page to get the next one. Test mode only: live keys get 403 until a live billing policy is decided.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    starting_after?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page of subscriptions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {string} */
+                            object?: "list";
+                            url?: string;
+                            has_more?: boolean;
+                            data?: components["schemas"]["Subscription"][];
+                        };
+                    };
+                };
+                400: components["responses"]["Error"];
+                403: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        /**
+         * Create a subscription
+         * @description Charges the first period before responding. A declined first charge still creates the subscription, as past_due, and retries it on the schedule (after 1, 3 and 5 days; cancelled after the third retry fails). Renewals are charged automatically at each period start. Test mode only: live keys get 403 until a live billing policy is decided.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        amount: number;
+                        currency: string;
+                        /** @enum {string} */
+                        interval: "week" | "month" | "year";
+                        /** @description A payment method ID, as used by payment intents. */
+                        payment_method: string;
+                        metadata?: {
+                            [key: string]: string;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description The subscription, after its first charge */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Subscription"];
+                    };
+                };
+                400: components["responses"]["Error"];
+                403: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retrieve a subscription
+         * @description Returns the subscription with its current period and status. Test mode only: live keys get 403 until a live billing policy is decided.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The subscription */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Subscription"];
+                    };
+                };
+                400: components["responses"]["Error"];
+                403: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a subscription
+         * @description Cancels now (reason requested), or with at_period_end at the end of the paid period (reason canceled_at_period_end). A canceled subscription cannot be canceled again. Test mode only: live keys get 403 until a live billing policy is decided.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @default false */
+                        at_period_end?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description The subscription */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Subscription"];
+                    };
+                };
+                400: components["responses"]["Error"];
+                403: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -666,6 +851,36 @@ export interface components {
             to: string;
             /** @description If set, Authorize returns this card decline inside the window. Other calls fail with a network error. */
             decline_code?: string;
+        };
+        Subscription: {
+            /** @description sub_... */
+            id: string;
+            /** @enum {string} */
+            object: "subscription";
+            /**
+             * @description active: charges succeed. past_due: the last charge failed and is being retried (or is on hold for reconciliation). canceled: no more charges.
+             * @enum {string}
+             */
+            status: "active" | "past_due" | "canceled";
+            /** @description Amount per period, in the currency's smallest unit. */
+            amount: number;
+            currency: string;
+            /** @enum {string} */
+            interval: "week" | "month" | "year";
+            payment_method: string;
+            /** @description Unix time. The period the next charge pays for starts here, and the charge is due then. */
+            current_period_start: number;
+            /** @description Unix time. */
+            current_period_end: number;
+            cancel_at_period_end: boolean;
+            /** @enum {string} */
+            cancel_reason?: "requested" | "payment_failed" | "canceled_at_period_end";
+            canceled_at?: number;
+            metadata?: {
+                [key: string]: string;
+            };
+            livemode: boolean;
+            created: number;
         };
     };
     responses: {

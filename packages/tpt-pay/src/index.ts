@@ -20,8 +20,11 @@ import type {
   PaymentIntent,
   Refund,
   AdvanceTestClockParams,
+  CreateSubscriptionParams,
+  ListSubscriptionsParams,
   RequestOptions,
   Subscription,
+  SubscriptionList,
   TestClock,
   TestClockOutage,
 } from './types';
@@ -125,10 +128,26 @@ export class TPTPay {
     clearOutages: (): Promise<TestClock> => this.request<TestClock>('DELETE', '/test_clocks/outages', { secret: true }),
   };
 
-  /** Planned: not yet served by the core service. */
+  /**
+   * Recurring charges. Test mode only (sk_test_...): live keys get 403 until a live billing policy
+   * is decided. The first period is charged by create; later periods are charged automatically.
+   */
   readonly subscriptions = {
-    create: (params: { customer: string; price: string }, options?: RequestOptions): Promise<Subscription> =>
+    /** Charges the first period before it returns. A declined first charge gives status past_due. */
+    create: (params: CreateSubscriptionParams, options?: RequestOptions): Promise<Subscription> =>
       this.request<Subscription>('POST', '/subscriptions', { body: params, secret: true, options }),
+
+    retrieve: (id: string): Promise<Subscription> =>
+      this.request<Subscription>('GET', `/subscriptions/${encodeURIComponent(id)}`, { secret: true }),
+
+    /** Newest first. Pass starting_after with the last ID of a page to get the next one. */
+    list: (params: ListSubscriptionsParams = {}): Promise<SubscriptionList> => {
+      const query = new URLSearchParams();
+      if (params.limit !== undefined) query.set('limit', String(params.limit));
+      if (params.starting_after !== undefined) query.set('starting_after', params.starting_after);
+      const suffix = query.toString() ? `?${query.toString()}` : '';
+      return this.request<SubscriptionList>('GET', `/subscriptions${suffix}`, { secret: true });
+    },
 
     cancel: (id: string, params: { at_period_end?: boolean } = {}, options?: RequestOptions): Promise<Subscription> =>
       this.request<Subscription>('POST', `/subscriptions/${encodeURIComponent(id)}/cancel`, {

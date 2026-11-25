@@ -211,3 +211,55 @@ describe('test clocks', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('subscriptions', () => {
+  const sub = {
+    id: 'sub_1',
+    object: 'subscription',
+    status: 'active',
+    amount: 1500,
+    currency: 'usd',
+    interval: 'month',
+    payment_method: 'pm_card_visa',
+    current_period_start: 1,
+    current_period_end: 2,
+    cancel_at_period_end: false,
+    livemode: false,
+    created: 1,
+  };
+
+  it('creates a subscription with a secret key and sends the parameters', async () => {
+    const fetchMock = mockFetch(json(200, sub));
+    const client = new TPTPay({ apiKey: 'sk_test_abc', retryBaseDelayMs: 0 });
+    const created = await client.subscriptions.create({
+      amount: 1500, currency: 'usd', interval: 'month', payment_method: 'pm_card_visa',
+    });
+    expect(created.status).toBe('active');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/subscriptions$/);
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(init?.body as string)).toMatchObject({ interval: 'month', payment_method: 'pm_card_visa' });
+  });
+
+  it('retrieves, lists with paging, and cancels at the period end', async () => {
+    const fetchMock = mockFetch(json(200, sub), json(200, { object: 'list', url: '/v1/subscriptions', has_more: false, data: [sub] }), json(200, { ...sub, cancel_at_period_end: true }));
+    const client = new TPTPay({ apiKey: 'sk_test_abc', retryBaseDelayMs: 0 });
+    await client.subscriptions.retrieve('sub_1');
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/subscriptions\/sub_1$/);
+    const page = await client.subscriptions.list({ limit: 5, starting_after: 'sub_0' });
+    expect(page.data).toHaveLength(1);
+    expect(fetchMock.mock.calls[1][0]).toMatch(/\/subscriptions\?limit=5&starting_after=sub_0$/);
+    const canceled = await client.subscriptions.cancel('sub_1', { at_period_end: true });
+    expect(canceled.cancel_at_period_end).toBe(true);
+    expect(JSON.parse(fetchMock.mock.calls[2][1]?.body as string)).toEqual({ at_period_end: true });
+  });
+
+  it('refuses subscription calls with a publishable key before sending anything', async () => {
+    const fetchMock = mockFetch();
+    const client = new TPTPay({ apiKey: 'pk_test_abc', retryBaseDelayMs: 0 });
+    await expect(client.subscriptions.create({
+      amount: 1500, currency: 'usd', interval: 'month', payment_method: 'pm_card_visa',
+    })).rejects.toMatchObject({ status: 403 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

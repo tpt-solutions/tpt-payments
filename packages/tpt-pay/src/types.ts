@@ -72,13 +72,45 @@ export interface Refund {
   created: number;
 }
 
+/** A recurring charge. Test mode only until a live billing policy is decided. */
 export interface Subscription {
   id: string;
   object: 'subscription';
-  customer: string;
-  status: string;
-  created: number;
+  /** active: charges succeed. past_due: the last charge failed and is being retried. canceled: no more charges. */
+  status: 'active' | 'past_due' | 'canceled';
+  amount: number;
+  currency: string;
+  interval: 'week' | 'month' | 'year';
+  payment_method: string;
+  /** Unix time. The period the next charge pays for starts here. */
+  current_period_start: number;
+  current_period_end: number;
   cancel_at_period_end: boolean;
+  cancel_reason?: 'requested' | 'payment_failed' | 'canceled_at_period_end';
+  canceled_at?: number;
+  metadata?: Record<string, string>;
+  livemode: boolean;
+  created: number;
+}
+
+export interface CreateSubscriptionParams {
+  amount: number;
+  currency: string;
+  interval: 'week' | 'month' | 'year';
+  payment_method: string;
+  metadata?: Record<string, string>;
+}
+
+export interface ListSubscriptionsParams {
+  limit?: number;
+  starting_after?: string;
+}
+
+export interface SubscriptionList {
+  object: 'list';
+  url: string;
+  has_more: boolean;
+  data: Subscription[];
 }
 
 export interface Invoice {
