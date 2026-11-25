@@ -37,10 +37,15 @@ export default function TransactionsPage() {
   const [search, setSearch] = useState("")
   // cursors[i] is the starting_after value for page i+1; the first page has none.
   const [cursors, setCursors] = useState<(string | null)[]>([null])
-  const [rows, setRows] = useState<PaymentIntent[]>([])
-  const [hasMore, setHasMore] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Each result is tagged with the request it answers. A result is current only while its tag
+  // matches the request on screen, so loading and errors are derived, not set inside the effect.
+  const requestKey = `${status}|${cursors.join(",")}`
+  const [result, setResult] = useState<{ key: string; rows: PaymentIntent[]; hasMore: boolean; error: string | null } | null>(null)
+  const current = result?.key === requestKey ? result : null
+  const loading = current === null
+  const rows = current?.rows ?? []
+  const hasMore = current?.hasMore ?? false
+  const error = current?.error ?? null
 
   const pageIndex = cursors.length - 1
 
@@ -48,30 +53,22 @@ export default function TransactionsPage() {
     const controller = new AbortController()
     const params = new URLSearchParams({ limit: String(PAGE_SIZE) })
     if (status !== "all") params.set("status", status)
-    const cursor = cursors[pageIndex]
+    const cursor = cursors[cursors.length - 1]
     if (cursor) params.set("starting_after", cursor)
 
-    setLoading(true)
-    setError(null)
     fetch(`/api/tpt/payment_intents?${params}`, { signal: controller.signal })
       .then(async (res) => {
         const body = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(body.error || `request failed (${res.status})`)
         return body as ListResponse
       })
-      .then((body) => {
-        setRows(body.data)
-        setHasMore(body.has_more)
-      })
+      .then((body) => setResult({ key: requestKey, rows: body.data, hasMore: body.has_more, error: null }))
       .catch((err) => {
         if (err.name === "AbortError") return
-        setRows([])
-        setHasMore(false)
-        setError(err.message)
+        setResult({ key: requestKey, rows: [], hasMore: false, error: err.message })
       })
-      .finally(() => setLoading(false))
     return () => controller.abort()
-  }, [status, pageIndex, cursors])
+  }, [status, cursors, requestKey])
 
   // The API pages by cursor and filters by status. Free-text search can only narrow the page
   // that is loaded, so it is labelled that way.

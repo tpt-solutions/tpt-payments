@@ -35,6 +35,14 @@ interface ListResponse {
   has_more: boolean
 }
 
+// Loads the merchant's keys. Effects call this and set state only in its callbacks.
+async function fetchKeys(): Promise<ApiKey[]> {
+  const res = await fetch("/api/tpt/api_keys?limit=100")
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error || `request failed (${res.status})`)
+  return (body as ListResponse).data
+}
+
 export default function ApiKeysPage() {
   const [keys, setKeys] = useState<ApiKey[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,23 +56,26 @@ export default function ApiKeysPage() {
   // The new key's secret, shown once and never again.
   const [newSecret, setNewSecret] = useState<{ name: string; secret: string } | null>(null)
 
-  const loadKeys = useCallback(async () => {
-    setLoadError(null)
+  // Used by handlers after a change. Effects use the fetch directly (see below).
+  const refreshKeys = async () => {
     try {
-      const res = await fetch("/api/tpt/api_keys?limit=100")
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(body.error || `request failed (${res.status})`)
-      setKeys((body as ListResponse).data)
+      setKeys(await fetchKeys())
+      setLoadError(null)
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "could not load keys")
-    } finally {
-      setLoading(false)
     }
-  }, [])
+  }
 
   useEffect(() => {
-    loadKeys()
-  }, [loadKeys])
+    let active = true
+    fetchKeys()
+      .then(
+        (data) => { if (active) { setKeys(data); setLoadError(null) } },
+        (err) => { if (active) setLoadError(err instanceof Error ? err.message : "could not load keys") },
+      )
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
 
   const createKey = async () => {
     setFormError(null)
@@ -80,7 +91,7 @@ export default function ApiKeysPage() {
       setNewSecret({ name: body.name, secret: body.secret })
       setNewKeyName("")
       setDialogOpen(false)
-      await loadKeys()
+      await refreshKeys()
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "could not create the key")
     } finally {
@@ -94,7 +105,7 @@ export default function ApiKeysPage() {
       const body = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(body.error?.message || body.error || `request failed (${res.status})`)
       toast({ description: "Key revoked. Requests with it will now be refused." })
-      await loadKeys()
+      await refreshKeys()
     } catch (err) {
       toast({ description: err instanceof Error ? err.message : "could not revoke the key" })
     }

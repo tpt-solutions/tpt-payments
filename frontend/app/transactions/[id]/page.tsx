@@ -1,7 +1,7 @@
 // tpt-payments/frontend/app/transactions/[id]/page.tsx
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { format } from "date-fns"
 import { ArrowLeft, Clock, CreditCard, RefreshCw, CheckCircle, DollarSign, FileText, User } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
@@ -76,6 +76,18 @@ function buildTimeline(intent: PaymentIntent, refunds: Refund[]): TimelineEvent[
   return events.sort((a, b) => a.timestamp - b.timestamp)
 }
 
+// Loads one intent and its refunds. Effects call this and set state in callbacks only.
+async function fetchTransaction(id: string): Promise<{ intent: PaymentIntent; refunds: Refund[] }> {
+  const [iRes, rRes] = await Promise.all([
+    fetch(`/api/tpt/payment_intent?id=${encodeURIComponent(id)}`),
+    fetch(`/api/tpt/refunds?payment_intent=${encodeURIComponent(id)}`),
+  ])
+  const iBody = await iRes.json().catch(() => ({}))
+  if (!iRes.ok) throw new Error(iBody.error || `request failed (${iRes.status})`)
+  const rBody = await rRes.json().catch(() => ({ data: [] }))
+  return { intent: iBody as PaymentIntent, refunds: rRes.ok ? (rBody.data as Refund[]) : [] }
+}
+
 export default function TransactionDetailPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
@@ -95,28 +107,28 @@ export default function TransactionDetailPage() {
   // refund twice. A new key is made once a refund succeeds.
   const idempotencyKey = useRef<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoadError(null)
+  // Used by handlers after a refund. The effect below loads on mount and when the id changes.
+  const refresh = async () => {
     try {
-      const [iRes, rRes] = await Promise.all([
-        fetch(`/api/tpt/payment_intent?id=${encodeURIComponent(id)}`),
-        fetch(`/api/tpt/refunds?payment_intent=${encodeURIComponent(id)}`),
-      ])
-      const iBody = await iRes.json().catch(() => ({}))
-      if (!iRes.ok) throw new Error(iBody.error || `request failed (${iRes.status})`)
-      const rBody = await rRes.json().catch(() => ({ data: [] }))
-      setIntent(iBody as PaymentIntent)
-      setRefunds(rRes.ok ? (rBody.data as Refund[]) : [])
+      const data = await fetchTransaction(id)
+      setIntent(data.intent)
+      setRefunds(data.refunds)
+      setLoadError(null)
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "could not load the transaction")
-    } finally {
-      setLoading(false)
     }
-  }, [id])
+  }
 
   useEffect(() => {
-    load()
-  }, [load])
+    let active = true
+    fetchTransaction(id)
+      .then(
+        (data) => { if (active) { setIntent(data.intent); setRefunds(data.refunds); setLoadError(null) } },
+        (err) => { if (active) setLoadError(err instanceof Error ? err.message : "could not load the transaction") },
+      )
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [id])
 
   if (loading) {
     return <div className="p-6 text-muted-foreground">Loading transaction…</div>
@@ -174,7 +186,7 @@ export default function TransactionDetailPage() {
       if (!res.ok) throw new Error(body.error?.message || body.error || `refund failed (${res.status})`)
       idempotencyKey.current = null
       setDialogOpen(false)
-      await load()
+      await refresh()
     } catch (err) {
       setRefundError(err instanceof Error ? err.message : "refund failed")
     } finally {
