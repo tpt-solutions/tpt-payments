@@ -1,7 +1,7 @@
 // tpt-payments/frontend/app/webhooks/page.tsx
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import { Plus, Trash2, Copy, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -62,6 +62,15 @@ async function readJson<T>(res: Response): Promise<T> {
   return body as T
 }
 
+// Load functions for the webhooks page. Effects call the fetchers and set state in callbacks only.
+async function fetchEndpoints(): Promise<ListResponse<WebhookEndpoint>> {
+  return readJson<ListResponse<WebhookEndpoint>>(await fetch("/api/tpt/webhook_endpoints?limit=100"))
+}
+
+async function fetchDeliveries(): Promise<ListResponse<Delivery>> {
+  return readJson<ListResponse<Delivery>>(await fetch("/api/tpt/webhook_deliveries?limit=50"))
+}
+
 export default function WebhooksPage() {
   const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -79,36 +88,41 @@ export default function WebhooksPage() {
   // The signing secret, shown once after creation and never again.
   const [newSecret, setNewSecret] = useState<{ url: string; secret: string } | null>(null)
 
-  const loadEndpoints = useCallback(async () => {
-    setLoadError(null)
+  // Used by handlers after a change.
+  const refreshEndpoints = async () => {
     try {
-      const body = await readJson<ListResponse<WebhookEndpoint>>(await fetch("/api/tpt/webhook_endpoints?limit=100"))
-      setEndpoints(body.data)
+      setEndpoints((await fetchEndpoints()).data)
+      setLoadError(null)
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "could not load endpoints")
-    } finally {
-      setLoading(false)
     }
-  }, [])
+  }
 
-  const loadDeliveries = useCallback(async () => {
-    setDeliveriesError(null)
-    try {
-      const body = await readJson<ListResponse<Delivery>>(await fetch("/api/tpt/webhook_deliveries?limit=50"))
-      setDeliveries(body.data)
-    } catch (err) {
-      setDeliveriesError(err instanceof Error ? err.message : "could not load deliveries")
-      setDeliveries([])
-    }
+  useEffect(() => {
+    let active = true
+    fetchEndpoints()
+      .then(
+        (body) => { if (active) { setEndpoints(body.data); setLoadError(null) } },
+        (err) => { if (active) setLoadError(err instanceof Error ? err.message : "could not load endpoints") },
+      )
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [])
 
   useEffect(() => {
-    loadEndpoints()
-  }, [loadEndpoints])
-
-  useEffect(() => {
-    if (activeTab === "logs") loadDeliveries()
-  }, [activeTab, loadDeliveries])
+    if (activeTab !== "logs") return
+    let active = true
+    fetchDeliveries()
+      .then(
+        (body) => { if (active) { setDeliveries(body.data); setDeliveriesError(null) } },
+        (err) => {
+          if (!active) return
+          setDeliveriesError(err instanceof Error ? err.message : "could not load deliveries")
+          setDeliveries([])
+        },
+      )
+    return () => { active = false }
+  }, [activeTab])
 
   const toggleEvent = (event: string) => {
     setSelectedEvents((prev) => {
@@ -138,7 +152,7 @@ export default function WebhooksPage() {
       setNewUrl("")
       setSelectedEvents(new Set())
       setDialogOpen(false)
-      await loadEndpoints()
+      await refreshEndpoints()
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "could not create the endpoint")
     } finally {
@@ -150,9 +164,22 @@ export default function WebhooksPage() {
     try {
       await readJson(await fetch(`/api/tpt/webhook_endpoint?id=${encodeURIComponent(id)}`, { method: "DELETE" }))
       toast({ description: "Endpoint disabled. Its delivery history is kept." })
-      await loadEndpoints()
+      await refreshEndpoints()
     } catch (err) {
       toast({ description: err instanceof Error ? err.message : "could not disable the endpoint" })
+    }
+  }
+
+  // Queues a delivery to be sent again, then refreshes the log.
+  const replayDelivery = async (id: string) => {
+    try {
+      const res = await fetch(`/api/tpt/webhook_delivery_replay?id=${encodeURIComponent(id)}`, { method: "POST" })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `request failed (${res.status})`)
+      toast({ description: "Queued for another attempt." })
+      setDeliveries(await fetchDeliveries().then((b) => b.data).catch(() => deliveries))
+    } catch (err) {
+      toast({ description: err instanceof Error ? err.message : "could not replay the delivery" })
     }
   }
 
@@ -292,6 +319,7 @@ export default function WebhooksPage() {
                     <TableHead>HTTP</TableHead>
                     <TableHead>Attempts</TableHead>
                     <TableHead>Last error</TableHead>
+                    <TableHead className="w-[90px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -303,6 +331,9 @@ export default function WebhooksPage() {
                       <TableCell>{d.last_http_status ?? "—"}</TableCell>
                       <TableCell>{d.attempts}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">{d.last_error || "—"}</TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" onClick={() => replayDelivery(d.id)}>Replay</Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
