@@ -32,6 +32,23 @@ pay = TPTPay(os.environ["TPT_SECRET_KEY"], api_base="http://localhost:8080/v1")
 
 The Python client takes secret keys only.
 
+## Go: `tpt-pay-go`
+
+```go
+import tptpay "github.com/tpt-solutions/tpt-payments/packages/tpt-pay-go"
+
+client, err := tptpay.New(os.Getenv("TPT_SECRET_KEY"), tptpay.WithBaseURL("http://localhost:8080/v1"))
+
+pi, err := client.PaymentIntents.Create(ctx, tptpay.CreatePaymentIntentParams{Amount: 2500, Currency: "usd"},
+    tptpay.WithIdempotencyKey("order-42"))
+
+// In the webhook handler, before decoding the body:
+err = tptpay.VerifyWebhook(body, r.Header.Get(tptpay.SignatureHeader), secret, 0)
+```
+
+The Go client uses only the standard library. Errors are `*tptpay.Error`, and `IsCardError`, `IsNotFound` and
+`IsConnectionError` tell the common cases apart. It is written by hand, not generated from the OpenAPI document.
+
 ## Command line: `tpt`
 
 Build it from `packages/tpt-pay-core/cmd/tpt`. Commands:
