@@ -14,7 +14,7 @@
     "express-rate-limit": "^7.2.0",
     "axios": "^1.7.0",
     "@cosmjs/stargate": "^0.39.0",
-    "@cosmjs/proto-signing": "^0.32.0",
+    "@cosmjs/proto-signing": "^0.39.0",
     "@cosmjs/crypto": "^0.39.0",
     "@cosmjs/encoding": "^0.39.0",
     "dotenv": "^18.0.10",
