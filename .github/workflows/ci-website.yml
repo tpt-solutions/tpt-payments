@@ -17,7 +17,7 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # The build fails on broken internal links and anchors (see docusaurus.config.js), so this
       # step is the documentation link check.
       - uses: actions/setup-node@v4
