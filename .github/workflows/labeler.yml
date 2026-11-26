@@ -14,7 +14,7 @@ jobs:
     steps:
       # pull_request_target runs with write access, so this job never checks out or runs code
       # from the pull request. It only reads the file list and applies labels.
-      - uses: actions/labeler@v5
+      - uses: actions/labeler@v7
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml
